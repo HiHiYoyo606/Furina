@@ -57,7 +57,7 @@ async def fetch_and_process_history(channel: dc.TextChannel):
 async def on_ready():
     print(f"You are logged in as {client.user}")
 
-async def ask_question(message: string):
+async def ask_question(message: str):
     real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
         1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. 
         2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
