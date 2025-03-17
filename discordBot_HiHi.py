@@ -3,6 +3,16 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 from enum import Enum
+from flask import Flask
+
+#ignroe thus part
+app = Flask(__name__)
+@app.route("/")
+def home():
+    return "This port is just a placeholder for Render."
+port = int(os.environ.get("PORT", 8080))
+import threading
+threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 load_dotenv()
 
