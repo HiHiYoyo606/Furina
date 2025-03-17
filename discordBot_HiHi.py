@@ -1,13 +1,20 @@
 import discord as dc
 import google.generativeai as genai
+import os
+from dotenv import load_dotenv
 from enum import Enum
+
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
 
 intents = dc.Intents.default()
 intents.message_content = True  # Enable message content intent
 intents.members = True 
 
 client = dc.Client(intents=intents)
-genai.configure(api_key="AIzaSyCLO7zCnQQ7SRW4GW5s1XpIunh-DYMTIPc")
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 chat = model.start_chat(history=[])
 
@@ -66,4 +73,4 @@ async def on_message(message: dc.Message):
         add_content_record(response.text, UserType.MODEL)
 
 
-client.run("MTA3ODk0NjI5MzMxOTIwNDg4NQ.G8fEGb.NGGT87XuByKgbMm1SkMOIYOF5mHR5JhLsJ8bjY")
+client.run(DISCORD_BOT_API_KEY)
