@@ -57,8 +57,15 @@ async def on_ready():
     print(f"You are logged in as {client.user}")
 
 @client.event
+
+async def ask_question(string: 
+
 async def on_message(message: dc.Message):
     if message.channel.id in TARGET_CHANNEL_IDS:
+        if client.user in message.mentions:
+            await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
+            return
+            
         if message.author == client.user:
             return
         
@@ -81,6 +88,5 @@ async def on_message(message: dc.Message):
             await message.channel.send(chunk)
         
         add_content_record(response.text, UserType.MODEL)
-
 
 client.run(DISCORD_BOT_API_KEY)
