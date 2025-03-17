@@ -59,7 +59,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message: dc.Message):
-    if message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, discord.DMChannel):
+    if message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel):
         if client.user in message.mentions:
             await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
             return
