@@ -1,0 +1,69 @@
+import discord as dc
+import google.generativeai as genai
+from enum import Enum
+
+intents = dc.Intents.default()
+intents.message_content = True  # Enable message content intent
+intents.members = True 
+
+client = dc.Client(intents=intents)
+genai.configure(api_key="AIzaSyCLO7zCnQQ7SRW4GW5s1XpIunh-DYMTIPc")
+model = genai.GenerativeModel("gemini-2.0-flash")
+chat = model.start_chat(history=[])
+
+TARGET_CHANNEL_IDS = [
+    1351068939173498943,  
+]
+
+class UserType(Enum):
+    USER = "user"
+    MODEL = "model"
+
+def add_content_record(message: str, user_type: UserType):
+    chat.history.append({
+        "role": user_type.value,
+        "parts": [message]
+    })    
+
+async def fetch_and_process_history(channel: dc.TextChannel):
+    try:
+        print(f"Fetching history from channel: {channel.name}")
+        async for message in channel.history(limit=300):
+            add_content_record(message.content, UserType.USER)
+            # You can also process messages here, e.g., summarize them
+        print(f"Finished fetching history from {channel.name}.")
+    except Exception as e:
+        print(f"Error fetching history: {e}")
+
+@client.event
+async def on_ready():
+    print(f"You are logged in as {client.user}")
+
+@client.event
+async def on_message(message: dc.Message):
+    if message.channel.id in TARGET_CHANNEL_IDS:
+        if message.author == client.user:
+            return
+        
+        user_name = message.author.nick if message.author.nick else message.author.name
+
+        await fetch_and_process_history(message.channel)
+        add_content_record(message.content, UserType.USER)
+
+        real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
+        1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. 
+        2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
+        3. The question is asked by {user_name}. 
+        Qusetion: {message.content}"""
+        response = chat.send_message(real_question)
+        
+        max_length = 2000
+        response_text = response.text
+        for i in range(0, len(response_text), max_length):
+            chunk = response_text[i:i + max_length]
+            await message.channel.send(chunk)
+        
+        add_content_record(response.text, UserType.MODEL)
+
+
+client.run("MTA3ODk0NjI5MzMxOTIwNDg4NQ.G8fEGb.NGGT87XuByKgbMm1SkMOIYOF5mHR5JhLsJ8bjY")
