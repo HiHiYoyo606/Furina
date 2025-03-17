@@ -59,16 +59,21 @@ async def on_ready():
 
 @client.event
 async def on_message(message: dc.Message):
-    if message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel):
+    in_DM = isinstance(message.channel, dc.DMChannel)
+    if message.channel.id in TARGET_CHANNEL_IDS or in_DM:
         if client.user in message.mentions:
             await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
             return
             
         if message.author == client.user:
             return
-        
-        user_name = message.author.nick if message.author.nick else message.author.name
 
+        user_name = ""
+        if not in_DM:
+            user_name = message.author.nick if message.author.nick else message.author.name
+        else:
+            user_name = message.author.name
+            
         await fetch_and_process_history(message.channel)
         add_content_record(message.content, UserType.USER)
         real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
