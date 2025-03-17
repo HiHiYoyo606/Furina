@@ -57,22 +57,6 @@ async def fetch_and_process_history(channel: dc.TextChannel):
 async def on_ready():
     print(f"You are logged in as {client.user}")
 
-async def ask_question(message: str):
-    real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
-        1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. 
-        2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
-        3. The question is asked by {user_name}. 
-        Qusetion: {message}"""
-    response = chat.send_message(real_question)
-        
-    max_length = 2000
-    response_text = response.text
-    for i in range(0, len(response_text), max_length):
-        chunk = response_text[i:i + max_length]
-        await message.channel.send(chunk)
-    
-    add_content_record(response.text, UserType.MODEL)
-
 @client.event
 async def on_message(message: dc.Message):
     if message.channel.id in TARGET_CHANNEL_IDS:
@@ -87,6 +71,19 @@ async def on_message(message: dc.Message):
 
         await fetch_and_process_history(message.channel)
         add_content_record(message.content, UserType.USER)
-        ask_question(message.content)
+        real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
+                        1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. 
+                        2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
+                        3. The question is asked by {user_name}. 
+                        Qusetion: {message.content}"""
+        response = chat.send_message(real_question)
+            
+        max_length = 2000
+        response_text = response.text
+        for i in range(0, len(response_text), max_length):
+            chunk = response_text[i:i + max_length]
+            await message.channel.send(chunk)
+        
+        add_content_record(response.text, UserType.MODEL)
 
 client.run(DISCORD_BOT_API_KEY)
