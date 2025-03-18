@@ -73,11 +73,12 @@ async def on_message(message: dc.Message):
             user_name = message.author.nick if message.author.nick else message.author.name
         else:
             user_name = message.author.name
-            
+
+        chat.history = []
         await fetch_and_process_history(message.channel)
         add_content_record(message.content, UserType.USER)
         real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf, to answer this question. 
-                        1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. 
+                        1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. Also, if you need to express the feelings, use emoji, emotes and emoji-text instead of describing it.
                         2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
                         3. The question is asked by {user_name}. 
                         Qusetion: {message.content}"""
