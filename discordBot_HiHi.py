@@ -47,8 +47,11 @@ async def fetch_and_process_history(channel: dc.TextChannel):
     try:
         print(f"Fetching history from channel: {channel.name}")
         async for message in channel.history(limit=300):
-            add_content_record(message.content, UserType.USER)
-            # You can also process messages here, e.g., summarize them
+            if not message.author.bot:
+                add_content_record(message.content, UserType.USER)
+            else:
+                add_content_record(message.content, UserType.MODEL)
+        
         print(f"Finished fetching history from {channel.name}.")
     except Exception as e:
         print(f"Error fetching history: {e}")
