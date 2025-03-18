@@ -29,7 +29,7 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 chat = model.start_chat(history=[])
 
 TARGET_CHANNEL_IDS = [
-    1351068939173498943,
+    1351423098276282478,
     1351206275538485424,
 ]
 
