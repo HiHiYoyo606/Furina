@@ -60,6 +60,7 @@ async def fetch_and_process_history(channel: dc.TextChannel):
 async def on_ready():
     print(f"You are logged in as {client.user}")
 
+last_response = ""
 @client.event
 async def on_message(message: dc.Message):
     in_DM = isinstance(message.channel, dc.DMChannel)
@@ -83,10 +84,15 @@ async def on_message(message: dc.Message):
                         2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
                         3. The question is asked by {user_name}. 
                         Question: {message.content}"""
+        
         response = chat.send_message(real_question)
             
         max_length = 2000
         response_text = response.text
+        if response_text == last_response:
+            return
+
+        last_response = response_text
         for i in range(0, len(response_text), max_length):
             chunk = response_text[i:i + max_length]
             await message.channel.send(chunk)
