@@ -47,9 +47,8 @@ async def fetch_and_process_history(channel: dc.TextChannel):
     try:
         print(f"Fetching history from channel: {channel.name}")
         async for message in channel.history(limit=300):
-            if not message.author.bot:
-                add_content_record(message.content, UserType.USER)
-                # You can also process messages here, e.g., summarize them
+            add_content_record(message.content, UserType.USER)
+            # You can also process messages here, e.g., summarize them
         print(f"Finished fetching history from {channel.name}.")
     except Exception as e:
         print(f"Error fetching history: {e}")
@@ -77,7 +76,6 @@ async def on_message(message: dc.Message):
 
         chat.history = []
         await fetch_and_process_history(message.channel)
-        add_content_record(message.content, UserType.USER)
         real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf(user might be a male or even female), to answer this question. 
                         1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. Also, if you need to express the feelings, use emoji, emotes and emoji-text instead of using (description) to describe it.
                         2. Answer the question in the language used by user (if is zh, use zhtw instead of zhcn), if user didn't ask you to use others. 
@@ -90,7 +88,5 @@ async def on_message(message: dc.Message):
         for i in range(0, len(response_text), max_length):
             chunk = response_text[i:i + max_length]
             await message.channel.send(chunk)
-        
-        add_content_record(response.text, UserType.MODEL)
 
 client.run(DISCORD_BOT_API_KEY)
