@@ -65,7 +65,7 @@ async def on_message(message: dc.Message):
             await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
             return
             
-        if message.author == client.user:
+        if message.author == client.user or message.author.bot:
             return
 
         user_name = ""
