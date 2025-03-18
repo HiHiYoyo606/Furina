@@ -77,7 +77,6 @@ async def on_message(message: dc.Message):
         else:
             user_name = message.author.name
 
-        chat.history = []
         await fetch_and_process_history(message.channel)
         real_question = f"""Please answer this question, assume you are the character \"Furina de Fontaine\" in the game "Genshin Impact" and you are the user's gf(user might be a male or even female), to answer this question. 
                         1. Please remember that you are in discord, so if any pattern is needed, use MarkDown pattern. Also, if you need to express the feelings, use emoji, emotes and emoji-text instead of using (description) to describe it.
