@@ -60,9 +60,10 @@ async def fetch_and_process_history(channel: dc.TextChannel):
 async def on_ready():
     print(f"You are logged in as {client.user}")
 
-last_response = ""
+last_response = "0"
 @client.event
 async def on_message(message: dc.Message):
+    global last_response
     in_DM = isinstance(message.channel, dc.DMChannel)
     if message.channel.id in TARGET_CHANNEL_IDS or in_DM:
         if client.user in message.mentions:
