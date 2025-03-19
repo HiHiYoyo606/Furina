@@ -59,7 +59,7 @@ async def process_message(message: dc.Message):
             await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
             return
 
-        user_name = message.author.nick if message.author.nick else message.author.name
+        user_name = message.author.name
         
         # 取得頻道完整歷史訊息
         full_history = await fetch_full_history(message.channel)
