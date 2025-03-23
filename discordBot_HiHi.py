@@ -100,7 +100,7 @@ async def on_message(message: dc.Message):
 async def main():
     try:
         await client.start(DISCORD_BOT_API_KEY)
-    except discord.errors.RateLimitError as e:
+    except dc.errors.RateLimitError as e:
         logging.warning(f"Rate limit triggered. Retry after: {e.retry_after}s")
         await asyncio.sleep(e.retry_after)
 
