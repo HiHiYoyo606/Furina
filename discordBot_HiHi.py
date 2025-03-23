@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from flask import Flask
 
 app = Flask(__name__)
-
 @app.route("/")
 def home():
     return "Successfully let Furina wake up."
@@ -70,18 +69,15 @@ async def process_message(message: dc.Message):
                         3. The question is asked by {user_name}.
                         4. The new response's background depends on the previous history.
                         Question: {message.content}"""
-      
-        chat = model.start_chat(history=full_history)
         
-        print("Sending message to Gemini API...")
-        response = chat.send_message(real_question)
-
+        chat = model.start_chat(history=full_history)
+        response = chat.send_message(real_question)    
+        
         if not response.text:
             await message.channel.send("Oops! I didn't get a response.")
             return
 
         # 確保不超過 Discord 2000 字限制
-        response = chat.send_message(real_question)
         max_length = 2000
         response_text = response.text.strip()
 
