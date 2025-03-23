@@ -53,42 +53,40 @@ async def fetch_full_history(channel: dc.TextChannel):
 
 async def process_message(message: dc.Message):
     """處理收到的訊息並產生回應"""
-    if message.author == client.user:
-        return  # 避免機器人回應自己
+    if message.author == client.user or (not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel))):
+        return  # 忽略非目標頻道訊息
 
-    in_DM = isinstance(message.channel, dc.DMChannel)
-    if message.channel.id in TARGET_CHANNEL_IDS or in_DM:
-        if client.user in message.mentions:
-            await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
-            return
+    if client.user in message.mentions:
+        await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
+        return
 
-        user_name = message.author.name
-        
-        # 取得頻道完整歷史訊息
-        full_history = await fetch_full_history(message.channel)
-        
-        real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
-                        1. Format your response using Markdown, Imagine you are in the life in Genshin Impact, so you are \"talking\" to the user, not sending message.
-                        2. Answer in the same language as the user (if in Chinese(any region), ONLY use Traditional Chinese(ZHTW), NOT the zhcn).
-                        3. The question is asked by {user_name}.
-                        4. The new response's background depends on the previous history.
-                        Question: {message.content}"""
-        
-        chat = model.start_chat(history=full_history)
-        response = chat.send_message(real_question)    
-        
-        if not response.text:
-            await message.channel.send("Oops! I didn't get a response.")
-            return
+    user_name = message.author.name
+    
+    # 取得頻道完整歷史訊息
+    full_history = await fetch_full_history(message.channel)
+    
+    real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
+                    1. Format your response using Markdown, Imagine you are in the life in Genshin Impact, so you are \"talking\" to the user, not sending message.
+                    2. Answer in the same language as the user (if in Chinese(any region), ONLY use Traditional Chinese(ZHTW), NOT the zhcn).
+                    3. The question is asked by {user_name}.
+                    4. The new response's background depends on the previous history.
+                    Question: {message.content}"""
+    
+    chat = model.start_chat(history=full_history)
+    response = chat.send_message(real_question)    
+    
+    if not response.text:
+        await message.channel.send("Oops! I didn't get a response.")
+        return
 
-        # 確保不超過 Discord 2000 字限制
-        max_length = 2000
-        response_text = response.text.strip()
+    # 確保不超過 Discord 2000 字限制
+    max_length = 2000
+    response_text = response.text.strip()
 
-        for i in range(0, len(response_text), max_length):
-            chunk = response_text[i:i + max_length]
-            await message.channel.send(chunk)
-            await asyncio.sleep(3)
+    for i in range(0, len(response_text), max_length):
+        chunk = response_text[i:i + max_length]
+        await message.channel.send(chunk)
+        await asyncio.sleep(3)
 
 @client.event
 async def on_ready():
@@ -100,15 +98,11 @@ async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
 
 async def main():
-    success = 0
-    while success == 0:
-        try:
-            logging.info("Starting bot...")
-            await client.start(DISCORD_BOT_API_KEY)
-            success = 1
-        except Exception as e:
-            logging.error(f"Error! reason: {e}")
-            await asyncio.sleep(10000)
+    try:
+        await client.start(DISCORD_BOT_API_KEY)
+    except discord.errors.RateLimitError as e:
+        logging.warning(f"Rate limit triggered. Retry after: {e.retry_after}s")
+        await asyncio.sleep(e.retry_after)
 
 if __name__ == "__main__":
     asyncio.run(main())
