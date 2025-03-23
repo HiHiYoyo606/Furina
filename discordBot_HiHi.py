@@ -103,11 +103,12 @@ async def main():
     success = 0
     while success == 0:
         try:
-            client.run(DISCORD_BOT_API_KEY)
+            logging.info("Starting bot...")
+            await client.start(DISCORD_BOT_API_KEY)
             success = 1
         except Exception as e:
             logging.error(f"Error! reason: {e}")
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
