@@ -87,7 +87,8 @@ async def process_message(message: dc.Message):
 
         for i in range(0, len(response_text), max_length):
             chunk = response_text[i:i + max_length]
-            await message.channel.send(chunk) 
+            await message.channel.send(chunk)
+            await asyncio.sleep(3)
 
 @client.event
 async def on_ready():
