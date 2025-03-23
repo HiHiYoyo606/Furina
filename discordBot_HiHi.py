@@ -108,7 +108,7 @@ async def main():
             success = 1
         except Exception as e:
             logging.error(f"Error! reason: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(10000)
 
 if __name__ == "__main__":
     asyncio.run(main())
