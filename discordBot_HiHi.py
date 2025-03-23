@@ -2,6 +2,7 @@ import discord as dc
 import google.generativeai as genai
 import os
 import threading
+import logging
 import asyncio  # 加入 asyncio 避免 race condition
 from dotenv import load_dotenv
 from flask import Flask
@@ -10,12 +11,15 @@ app = Flask(__name__)
 @app.route("/")
 def home():
     return "Successfully let Furina wake up."
-
 port = int(os.environ.get("PORT", 8080))
 threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
-load_dotenv()
+logging.basicConfig(
+    level=logging.DEBUG,  # 或 DEBUG 適用於更詳細的日誌
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
+load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
 
@@ -88,11 +92,22 @@ async def process_message(message: dc.Message):
 
 @client.event
 async def on_ready():
-    print(f"You are logged in as {client.user}")
+    logging.info(f"You are logged in as {client.user}")
     await asyncio.sleep(3)  # 確保 WebSocket 初始化完成
 
 @client.event
 async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
 
-client.run(DISCORD_BOT_API_KEY)
+def main():
+    success = 0
+    while success == 0:
+        try:
+            client.run(DISCORD_BOT_API_KEY)
+            success = 1
+        except Exception as e:
+            logging.error(f"Error! reason: {e}")
+            await asyncio.sleep(10)
+
+if __name__ == "__main__":
+    main()
