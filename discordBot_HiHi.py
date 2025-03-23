@@ -99,7 +99,7 @@ async def on_ready():
 async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
 
-def main():
+async def main():
     success = 0
     while success == 0:
         try:
@@ -110,4 +110,4 @@ def main():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    main()
+    await main()
