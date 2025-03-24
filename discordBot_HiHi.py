@@ -89,7 +89,7 @@ async def process_message(message: dc.Message):
         await message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    r_arr = response_text.split("\n")
+    r_arr = response_text.split("\n\n")
     res_oneln = "\n".join(r_arr) + "\n"
 
     logging.info(f"New message sent by bot: {res_oneln}")
