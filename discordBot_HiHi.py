@@ -53,12 +53,12 @@ async def fetch_full_history(channel: dc.TextChannel):
 
 async def process_message(message: dc.Message):
     """處理收到的訊息並產生回應"""
-    if message.author == client.user or (not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel))):
-        return  # 忽略非目標頻道訊息
-
     if client.user in message.mentions:
         await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
         return
+
+    if message.author == client.user or (not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel))):
+        return  # 忽略非目標頻道訊息
 
     user_name = message.author.name
     logging.info(f"New message sent by {user_name}: {message.content}")
