@@ -7,17 +7,18 @@ import asyncio  # 加入 asyncio 避免 race condition
 from dotenv import load_dotenv
 from flask import Flask
 
-app = Flask(__name__)
-@app.route("/")
-def home():
-    return "Furina is now awake! :D"
-port = int(os.environ.get("PORT", 8080))
-threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
-
 logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+app = Flask(__name__)
+@app.route("/")
+def home():
+    logging.info("The flask site is connected by someone. Please ensure that Discord won't deny the connection.")
+    return "Furina is now awake! :D"
+port = int(os.environ.get("PORT", 8080))
+threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
