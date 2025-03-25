@@ -33,12 +33,13 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 TARGET_CHANNEL_IDS = [
-    1351423098276282478,
-    1351206275538485424,
+    1351423098276282478, 
+    1351206275538485424, 
 ]
 
 async def fetch_full_history(channel: dc.TextChannel) -> list:
-    """取得頻道的完整歷史訊息，並回傳陣列 (格式: [{"role": "user", "parts": "訊息內容"}])"""
+    """取得頻道的完整歷史訊息"""
+    """回傳: [{"role": "user", "parts": "訊息內容"}]..."""
     try:
         messages = []
         async for message in channel.history(limit=100):  # 限制讀取最近 100 則
@@ -53,10 +54,11 @@ async def fetch_full_history(channel: dc.TextChannel) -> list:
         return []
     
 async def ask_question(question: dc.Message) -> str:
+    """啟用Gemini詢問問題並回傳答案"""
+    """回傳: 詢問的答案(string)"""
+
     user_name = question.author.name
     logging.info(f"New message sent by {user_name}: {question.content}")
-    
-    # 取得頻道完整歷史訊息
     full_history = await fetch_full_history(question.channel)
     
     real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
@@ -68,14 +70,13 @@ async def ask_question(question: dc.Message) -> str:
     
     chat = model.start_chat(history=full_history)
     response = chat.send_message(real_question)
-    if not response.text:
-        await question.channel.send("Oops! I didn't get a response.")
-        return
 
     return response.text
 
-async def sent_message_to_channel(original_message: dc.Message, message_to_send: str):
-    # 確保不超過 Discord 2000 字限制
+async def sent_message_to_channel(original_message: dc.Message, message_to_send: str) -> None:
+    """確保不超過 Discord 2000 字限制下發送訊息"""
+    """回傳: None"""
+    
     max_length = 2000
     for i in range(0, len(message_to_send), max_length):
         chunk = message_to_send[i:i + max_length]
@@ -86,8 +87,10 @@ async def sent_message_to_channel(original_message: dc.Message, message_to_send:
     res_oneln = "\n".join(r_log_arr) + "\n"
     logging.info(f"New message sent by bot: {res_oneln}")
 
-async def process_message(message: dc.Message):
+async def process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
+    """回傳: None"""
+
     if client.user in message.mentions:
         await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
         return
@@ -100,6 +103,10 @@ async def process_message(message: dc.Message):
     try:
         response = await ask_question(message)
         response_strip = response.strip()
+        if not response_strip:
+            await message.channel.send("Oops! I didn't get a response.")
+            raise Exception("Empty response")
+        
         await sent_message_to_channel(message, response_strip)
     except Exception as e:
         logging.error(f"Error processing message: {e}")
