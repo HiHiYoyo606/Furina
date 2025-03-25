@@ -3,6 +3,7 @@ import google.generativeai as genai
 import os
 import threading
 import logging
+import time
 import asyncio  # 加入 asyncio 避免 race condition
 from dotenv import load_dotenv
 from flask import Flask
@@ -58,7 +59,7 @@ async def ask_question(question: dc.Message) -> str:
     """回傳: 詢問的答案(string)"""
 
     user_name = question.author.name
-    logging.info(f"New message sent by {user_name}: {question.content}")
+    logging.info(f"{user_name} has sent a question at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     full_history = await fetch_full_history(question.channel)
     
     real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
@@ -83,9 +84,7 @@ async def sent_message_to_channel(original_message: dc.Message, message_to_send:
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    r_log_arr = message_to_send.split("\n\n")
-    res_oneln = "\n".join(r_log_arr) + "\n"
-    logging.info(f"New message sent by bot: {res_oneln}")
+    logging.info(f"Bot successfully sent message at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 async def process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
