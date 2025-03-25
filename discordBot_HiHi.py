@@ -37,6 +37,7 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 TARGET_CHANNEL_IDS = [
     1351423098276282478, 
     1351206275538485424, 
+    1351241107190710292,
 ]
 
 async def fetch_full_history(channel: dc.TextChannel) -> list:
