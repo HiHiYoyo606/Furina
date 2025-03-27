@@ -51,7 +51,7 @@ TARGET_CHANNEL_IDS = [
 def get_hkt_time():
     gmt8 = timezone(timedelta(hours=8))
     gmt8_time = datetime.now(gmt8)
-    return gmt8_time.time().strftime("%Y-%m-%d %H:%M:%S") 
+    return gmt8_time.strftime("%Y-%m-%d %H:%M:%S") 
 
 async def fetch_full_history(channel: dc.TextChannel) -> list:
     """取得頻道的完整歷史訊息"""
