@@ -37,7 +37,7 @@ intents = dc.Intents.default()
 intents.message_content = True  
 intents.members = True 
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=None, intents=intents)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
