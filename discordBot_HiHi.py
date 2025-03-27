@@ -131,16 +131,16 @@ async def process_message(message: dc.Message) -> None:
 async def help(interaction: dc.Interaction):
     """顯示說明訊息"""
     """回傳: None"""
-    help_message = """
-    以下是可用的指令 | The following commands are available:
-    - `/help`
-    ```顯示此說明訊息 | Show this help message.```
-
-    以下是一些操作 | The following operations are available:
-    1. 如果你想重置對話，請輸出`$re`, Send `$re` to reset the conversation.
-    2. 如果你想要忽略特定訊息，請在訊息前面加上`$skip`, Add `$skip` before the message you want to skip.
-    """
-    await interaction.response.send_message(help_message, ephemeral=True)
+    help_message = [
+        "以下是可用的指令 | The following commands are available:",
+        "`/help`",
+        "```顯示此說明訊息 | Show this help message.```",
+        "",
+        "以下是一些操作 | The following operations are available:",
+        "1. 如果你想重置對話，請輸出`$re`, Send `$re` to reset the conversation.",
+        "2. 如果你想要忽略特定訊息，請在訊息前面加上`$skip`, Add `$skip` before the message you want to skip."
+    ]
+    await interaction.response.send_message("\n".join(help_message), ephemeral=True)
     send_new_info_logging(f"Someone has asked for Furina's help at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 @bot.event
