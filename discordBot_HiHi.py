@@ -5,6 +5,7 @@ import threading
 import logging
 import time
 import asyncio  # 加入 asyncio 避免 race condition
+from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 
@@ -30,7 +31,7 @@ intents = dc.Intents.default()
 intents.message_content = True  
 intents.members = True 
 
-client = dc.Client(intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
@@ -46,7 +47,15 @@ async def fetch_full_history(channel: dc.TextChannel) -> list:
     try:
         messages = []
         async for message in channel.history(limit=100):  # 限制讀取最近 100 則
-            role = "user" if message.author != client.user else "model"
+            if message.content.startswith("$re"):
+                break
+            
+            if message.content.startswith("$skip"):
+                continue
+            if message.interaction is not None:
+                continue
+            
+            role = "user" if message.author != bot.user else "model"
             messages.append({"role": role, "parts": [message.content]})
 
         messages.reverse()  # 讓對話順序從舊到新
@@ -92,11 +101,11 @@ async def process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
     """回傳: None"""
 
-    if client.user in message.mentions:
+    if bot.user in message.mentions:
         await message.channel.send(":D? Ask HiHiYoyo606 to let me speak with you:D")
         return
 
-    if message.author == client.user:
+    if message.author == bot.user:
         return  # 忽略自己發送的訊息
     if not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel)):
         return  # 忽略非目標頻道訊息
@@ -112,18 +121,33 @@ async def process_message(message: dc.Message) -> None:
     except Exception as e:
         logging.error(f"Error processing message: {e}")
 
-@client.event
+@bot.tree.command(name="help", description="顯示說明訊息 | Show the informations.")
+async def help(interaction: dc.Interaction):
+    """顯示說明訊息"""
+    """回傳: None"""
+    help_message = """
+    以下是可用的指令 | The following commands are available:
+    - `/help`
+    ```顯示此說明訊息 | Show this help message.```
+
+    以下是一些操作 | The following operations are available:
+    - 如果你想重置對話，請輸出`$re` | Send `$re` to reset the conversation.
+    - 如果你想要忽略特定訊息，請在訊息前面加上`$skip` | Add `$skip' before the message you want to skip.
+    """
+    await interaction.response.send_message(help_message, ephemeral=True)
+
+@bot.event
 async def on_ready():
-    logging.info(f"You are logged in as {client.user}")
+    logging.info(f"You are logged in as {bot.user}")
     await asyncio.sleep(3)  # 確保 WebSocket 初始化完成
 
-@client.event
+@bot.event
 async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
 
 async def main():
     try:
-        await client.start(DISCORD_BOT_API_KEY)
+        await bot.start(DISCORD_BOT_API_KEY)
     except dc.errors.RateLimited as e:
         logging.warning(f"Rate limit triggered. Retry after: {e.retry_after}s")
         await asyncio.sleep(e.retry_after)
