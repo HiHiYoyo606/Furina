@@ -16,8 +16,8 @@ logging.basicConfig(
 time.timezone = "Asia/Taipei"
 connect_time = 0
 
-def send_new_info_logging(message: str, user: str = "") -> None:
-    logging.info("[]--------[System Log]--------[]\nMessage: {}".format(user, message))
+def send_new_info_logging(message: str) -> None:
+    logging.info("[]--------[System Log]--------[]\nMessage: {}".format(message))
 
 app = Flask(__name__)
 @app.route("/")
