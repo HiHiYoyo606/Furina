@@ -8,6 +8,7 @@ import asyncio  # 加入 asyncio 避免 race condition
 from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
+from datetime import datetime, timedelta, timezone
 
 logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
@@ -17,7 +18,7 @@ time.timezone = "Asia/Taipei"
 connect_time = 0
 
 def send_new_info_logging(message: str) -> None:
-    logging.info("[]--------[System Log]--------[]\nMessage: {}".format(message))
+    logging.info("[]--------[System Log]--------[]\n\tMessage: {}".format(message))
 
 app = Flask(__name__)
 @app.route("/")
@@ -46,6 +47,11 @@ TARGET_CHANNEL_IDS = [
     1351206275538485424, 
     1351241107190710292,
 ]
+
+def get_hkt_time():
+    gmt8 = timezone(timedelta(hours=8))
+    gmt8_time = datetime.now(gmt8)
+    return gmt8_time.time().strftime("%Y-%m-%d %H:%M:%S") 
 
 async def fetch_full_history(channel: dc.TextChannel) -> list:
     """取得頻道的完整歷史訊息"""
@@ -76,7 +82,7 @@ async def ask_question(question: dc.Message) -> str:
     """回傳: 詢問的答案(string)"""
 
     user_name = question.author.name
-    send_new_info_logging(f"{user_name} has sent a question at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
     full_history = await fetch_full_history(question.channel)
     
     real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
@@ -101,7 +107,7 @@ async def sent_message_to_channel(original_message: dc.Message, message_to_send:
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    send_new_info_logging(f"Bot successfully sent message at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    send_new_info_logging(f"Bot successfully sent message at {get_hkt_time()}")
 
 async def process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
@@ -141,7 +147,7 @@ async def help(interaction: dc.Interaction):
         "2. 如果你想要忽略特定訊息，請在訊息前面加上`$skip`, Add `$skip` before the message you want to skip."
     ]
     await interaction.response.send_message("\n".join(help_message), ephemeral=True)
-    send_new_info_logging(f"Someone has asked for Furina's help at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
 
 @bot.event
 async def on_ready():
