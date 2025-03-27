@@ -14,11 +14,17 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 time.timezone = "Asia/Taipei"
+connect_time = 0
+
+def send_new_info_logging(message: str, user: str = "System") -> None:
+    logging.info("--System Log--\nSend by: {}\nMessage: {}".format(user, message))
 
 app = Flask(__name__)
 @app.route("/")
 def home():
-    logging.info("The flask site is connected by someone. Please ensure that Discord won't deny the connection.")
+    global connect_time
+    send_new_info_logging(f"Flask site connection No.{connect_time}")
+    connect_time += 1
     return "Furina is now awake! :D"
 port = int(os.environ.get("PORT", 8080))
 threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
@@ -52,7 +58,7 @@ async def fetch_full_history(channel: dc.TextChannel) -> list:
             
             if message.content.startswith("$skip"):
                 continue
-            if message.interaction is not None:
+            if message.interaction_metadata is not None:
                 continue
             
             role = "user" if message.author != bot.user else "model"
@@ -70,7 +76,7 @@ async def ask_question(question: dc.Message) -> str:
     """回傳: 詢問的答案(string)"""
 
     user_name = question.author.name
-    logging.info(f"{user_name} has sent a question at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    send_new_info_logging(f"{user_name} has sent a question at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     full_history = await fetch_full_history(question.channel)
     
     real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
@@ -95,7 +101,7 @@ async def sent_message_to_channel(original_message: dc.Message, message_to_send:
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    logging.info(f"Bot successfully sent message at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    send_new_info_logging(f"Bot successfully sent message at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 async def process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
@@ -139,11 +145,19 @@ async def help(interaction: dc.Interaction):
 @bot.event
 async def on_ready():
     logging.info(f"You are logged in as {bot.user}")
+
+    try:
+        synced = await bot.tree.sync()
+        send_new_info_logging(f"Synced {len(synced)} commands")
+    except Exception as e:
+        logging.error(f"Error syncing commands: {e}")
+
     await asyncio.sleep(3)  # 確保 WebSocket 初始化完成
 
 @bot.event
 async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
+    await bot.process_commands(message)
 
 async def main():
     try:
