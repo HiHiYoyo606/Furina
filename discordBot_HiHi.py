@@ -11,7 +11,7 @@ from flask import Flask
 
 logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(levelname)s - %(message)s'
 )
 time.timezone = "Asia/Taipei"
 connect_time = 0
