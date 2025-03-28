@@ -121,6 +121,8 @@ async def process_message(message: dc.Message) -> None:
         return  # 忽略自己發送的訊息
     if not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel)):
         return  # 忽略非目標頻道訊息
+    if message.content.startswith("$skip"):
+        return  # 忽略 $skip 指令
     
     try:
         response = await ask_question(message)
@@ -142,9 +144,10 @@ async def help(interaction: dc.Interaction):
         "`/help`",
         "```顯示此說明訊息 | Show this help message.```",
         "",
-        "以下是一些操作 | The following operations are available:",
+        "以下是可用的操作 | The following operations are available:",
         "1. 如果你想重置對話，請輸出`$re`, Send `$re` to reset the conversation.",
-        "2. 如果你想要忽略特定訊息，請在訊息前面加上`$skip`, Add `$skip` before the message you want to skip."
+        "2. 如果你想要忽略特定訊息，請在訊息前面加上`$skip`, Add `$skip` before the message you want to skip.",
+        "3. 你可以透過@我是否得到回覆來確認我在線上, You can check if I'm online by @me and receiving a reply.",
     ]
     await interaction.response.send_message("\n".join(help_message), ephemeral=True)
     send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
