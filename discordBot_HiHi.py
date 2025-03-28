@@ -164,7 +164,6 @@ async def on_ready():
 @bot.event
 async def on_message(message: dc.Message):
     await process_message(message)  # 確保只執行一次
-    await bot.process_commands(message)
 
 async def main():
     try:
