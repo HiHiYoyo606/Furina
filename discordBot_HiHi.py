@@ -173,10 +173,12 @@ async def main():
         await bot.start(DISCORD_BOT_API_KEY)   
     except dc.HTTPException as e:
         if e.status == 429:
-            retry_after = e.response.headers.get("Retry-After") #??
+            retry_after = e.response.headers.get("Retry-After")
             logging.warning(f"Rate limited! Retry after {retry_after} seconds.")
-            asyncio.sleep(int(retry_after))
+            # what? \
+            await asyncio.sleep(delay=int(retry_after))
             return await main()
+
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
