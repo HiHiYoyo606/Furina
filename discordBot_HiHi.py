@@ -170,7 +170,8 @@ async def on_message(message: dc.Message):
 
 async def main():
     try:
-        await bot.start(DISCORD_BOT_API_KEY)   
+        await bot.start(DISCORD_BOT_API_KEY)
+        send_new_info_logging(f"Bot successfully started at {get_hkt_time()}") 
     except dc.HTTPException as e:
         if e.status == 429:
             retry_after = e.response.headers.get("Retry-After")
