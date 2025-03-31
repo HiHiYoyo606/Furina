@@ -121,7 +121,7 @@ async def process_message(message: dc.Message) -> None:
         return  # 忽略自己發送的訊息
     if not (message.channel.id in TARGET_CHANNEL_IDS or isinstance(message.channel, dc.DMChannel)):
         return  # 忽略非目標頻道訊息
-    if message.content.startswith("$skip"):
+    if message.content.startswith("$skip") or message.content.startswith("$re"):
         return  # 忽略 $skip 指令
     
     try:
