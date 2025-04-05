@@ -10,48 +10,55 @@ from dotenv import load_dotenv
 from flask import Flask
 from datetime import datetime, timedelta, timezone
 
-logging.basicConfig(
-    level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
-    format='%(levelname)s - %(message)s'
-)
-time.timezone = "Asia/Taipei"
 connect_time = 0
-
-def send_new_info_logging(message: str) -> None:
-    logging.info("[]--------[System Log]--------[]\n\tMessage: {}".format(message))
-
-app = Flask(__name__)
-@app.route("/")
-def home():
-    global connect_time
-    send_new_info_logging(f"Flask site connection No.{connect_time}")
-    connect_time += 1
-    return "Furina is now awake! :D"
-port = int(os.environ.get("PORT", 8080))
-threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
-
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
-
-intents = dc.Intents.default()
-intents.message_content = True  
-intents.members = True 
-
-bot = commands.Bot(command_prefix=None, intents=intents)
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.0-flash")
-
 TARGET_CHANNEL_IDS = [
     1351423098276282478, 
     1351206275538485424, 
     1351241107190710292,
 ]
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
 
-def get_hkt_time():
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
+        format='%(levelname)s - %(message)s'
+    )
+    time.timezone = "Asia/Taipei"
+
+def send_new_info_logging(message: str) -> None:
+    logging.info("[]--------[System Log]--------[]\n\tMessage: {}".format(message))
+
+def flask_app():
+    app = Flask(__name__)
+    @app.route("/")
+    def home():
+        global connect_time
+        send_new_info_logging(f"Flask site connection No.{connect_time}")
+        connect_time += 1
+        return "Furina is now awake! :D"
+    port = int(os.environ.get("PORT", 8080))
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
+
+def set_bot():
+    intents = dc.Intents.default()
+    intents.message_content = True  
+    intents.members = True 
+
+    bot = commands.Bot(command_prefix=None, intents=intents)
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    return bot, model
+
+def get_hkt_time() -> str:
     gmt8 = timezone(timedelta(hours=8))
     gmt8_time = datetime.now(gmt8)
     return gmt8_time.strftime("%Y-%m-%d %H:%M:%S") 
+
+bot, model = set_bot()
+setup_logging()
+flask_app()
 
 async def fetch_full_history(channel: dc.TextChannel) -> list:
     """取得頻道的完整歷史訊息"""
