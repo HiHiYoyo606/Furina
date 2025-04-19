@@ -56,12 +56,14 @@ def get_hkt_time() -> str:
     gmt8_time = datetime.now(gmt8)
     return gmt8_time.strftime("%Y-%m-%d %H:%M:%S") 
 
-async def fetch_full_history(channel: dc.TextChannel) -> list:
+async def fetch_full_history(channel: dc.TextChannel, retry_attempts: int = 0) -> list:
     """取得頻道的完整歷史訊息"""
     """回傳: [{"role": "user", "parts": "訊息內容"}]..."""
+    max_retry_attempts = 5
+
     try:
-        messages = []
-        async for message in channel.history(limit=100):  # 限制讀取最近 100 則
+        history, messages = channel.history(limit=100), []
+        async for message in history:  # 限制讀取最近 100 則
             if message.content.startswith("$re"):
                 break
             
@@ -75,6 +77,19 @@ async def fetch_full_history(channel: dc.TextChannel) -> list:
 
         messages.reverse()  # 讓對話順序從舊到新
         return messages
+    
+    except dc.HTTPException as e:
+        if e.status != 429:
+            logging.error(f"HTTP error fetching history: {e.status} - {e.text}")
+            return []
+        
+        retry_after = int(e.response.headers.get("Retry-After", 1))
+        logging.warning(f"The request reached the rate limit! Retrying in {retry_after} seconds.")
+        
+        # 增加一點緩衝時間，避免剛好在邊界又觸發
+        await asyncio.sleep(retry_after + 1)
+        retry_attempts += 1
+        return await fetch_full_history(channel, retry_attempts)
     
     except Exception as e:
         logging.error(f"Error fetching history: {e}")
