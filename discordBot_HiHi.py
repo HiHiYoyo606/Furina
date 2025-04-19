@@ -108,6 +108,7 @@ async def ask_question(question: dc.Message) -> str:
                     2. Answer in the same language as the user (if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn).
                     3. The question is asked by {user_name}.
                     4. The new response's background depends on the previous history.
+                    5. It's better not to say too much sentence in one message, you can wait the user provide more questions.
                     Question: {question.content}"""
     
     chat = model.start_chat(history=full_history)
