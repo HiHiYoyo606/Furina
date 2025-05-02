@@ -5,11 +5,21 @@ import threading
 import logging
 import time
 import asyncio  # 加入 asyncio 避免 race condition
+import random
 from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from datetime import datetime, timedelta, timezone
 
+def random_code(length: int):
+    """
+    Generate a random code with 0~9 and letters.
+    """
+    c = ""
+    for i in range(length):
+        c += random.choice("0123456789abcdefghijklmnopqrstuvwxyz")
+    return c
+    
 connect_time = 0
 TARGET_CHANNEL_IDS = [
     1351423098276282478, 
@@ -27,13 +37,14 @@ logging.basicConfig(
 time.timezone = "Asia/Taipei"
 
 def send_new_info_logging(message: str) -> None:
-    logging.info(f"[]--------[System Log]--------[]\n\t[{message}]\n[]--------[System Log]--------[]")
+    logging.info(f"\n[]--------[System Log]--------[]\n\t Msg: {message}\n\tSign: {random_code(7)}\n[]--------[System Log]--------[]")
 
 app = Flask(__name__)
 @app.route("/")
 def home():
     global connect_time
-    send_new_info_logging(f"Flask site connection No.{connect_time}")
+    if connect_time % 5 == 0:
+        send_new_info_logging(f"Flask site connection No.{connect_time}")
     connect_time += 1
     return "Furina is now awake! :D"
 port = int(os.environ.get("PORT", 8080))
