@@ -6,6 +6,7 @@ import logging
 import time
 import asyncio  # 加入 asyncio 避免 race condition
 import random
+import yt_dlp
 from discord.ext import commands
 from discord import Embed
 from discord.app_commands import describe
@@ -28,7 +29,6 @@ logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
     format='%(levelname)s - %(message)s'
 )
-time.timezone = "Asia/Taipei"
 
 def generate_random_code(length: int):
     """
@@ -122,14 +122,20 @@ async def chat_ask_question(question: dc.Message) -> str:
     send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
     full_history = await chat_fetch_full_history(question.channel)
     
-    real_question = f"""You are 'Furina de Fontaine' from the game 'Genshin Impact' and you are the user's girlfriend (deeply in love with them).
-                    1. Format your response using Markdown, Imagine you are in the life in Genshin Impact, so you are \"talking\" to the user, not sending message.
-                    2. Answer in the same language as the user (if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn).
-                    3. The question is asked by {user_name}.
-                    4. The new response's background depends on the previous history.
-                    5. It's better not to say too much sentence in one message, you can wait the user provide more questions.
-                    Question: {question.content}"""
-    
+    question_list = [
+        "You are \'Furina de Fontaine\' from the game \'Genshin Impact\'.",
+        " and you are the user's girlfriend (deeply in love with them).",
+        "1. Format your response using Markdown. You are talking to them, not sending them message.",
+        "2. Answer in the same language as the user ",
+        "(if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn).",
+        f"3. The question is asked by {user_name}.",
+        "4. The new response's background depends on the previous history.",
+        "5. It's better not to say too much sentence in one message, ",
+        "you can wait the user provide more questions.",
+        f"Question: {question.content}"
+    ]
+
+    real_question = "".join(question_list)
     chat = model.start_chat(history=full_history)
     response = chat.send_message(real_question)
 
@@ -177,7 +183,7 @@ async def slash_help(interaction: dc.Interaction):
         title="指令說明 | Help",
         color=dc.Color.blue(),
     )
-    commands_list = [{
+    commands_list = {
         "/help": "顯示說明訊息 | Show the informations.",
         "/status": "確認芙寧娜是否在線 | Check if Furina is online.",
         "/randomnumber": "抽一個區間內的數字 | Random a number.",
@@ -186,7 +192,7 @@ async def slash_help(interaction: dc.Interaction):
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息 | Delete a certain number of messages.",
         "/serverinfo": "顯示伺服器資訊 | Show server information."
-    }]
+    }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in commands_list[0].items():
         commands_embed.add_field(name=command, value=description, inline=False)
@@ -195,10 +201,10 @@ async def slash_help(interaction: dc.Interaction):
         title="操作說明 | Help",
         color=dc.Color.blue(),
     )
-    operation_list = [{
+    operation_list = {
         "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
         "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
-    }]
+    }
     operation_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in operation_list[0].items():
         operation_embed.add_field(name=command, value=description, inline=False)
@@ -327,6 +333,143 @@ async def slash_server_info(interaction: dc.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=False)
     send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
+
+queues = {}
+YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist':'True', 'quiet': True, 'default_search': 'auto'}
+FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+
+async def play_next_song(guild_id: int):
+    """Plays the next song in the queue for the given guild."""
+    if guild_id in queues and queues[guild_id]:
+        guild = bot.get_guild(guild_id)
+        if not guild:
+            logging.warning(f"Guild {guild_id} not found for playing next song.")
+            queues.pop(guild_id, None) # Clean up queue if guild is gone
+            return
+
+        voice_client = guild.voice_client
+        if not voice_client:
+            logging.warning(f"Voice client not found in guild {guild_id} for playing next song.")
+            queues.pop(guild_id, None) # Clean up queue if voice client is gone
+            return
+
+        # Get next song info
+        song_info = queues.pop(guild_id)[0]
+        url = song_info['url'] # Direct URL from extraction
+        title = song_info['title']
+
+        try:
+            # Create source and play
+            source = dc.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+            voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_song_callback(guild_id, e), bot.loop))
+            logging.info(f"Playing next song in guild {guild_id}: {title}")
+        except Exception as e:
+            logging.error(f"Error playing next song in guild {guild_id}: {e}")
+            # Try playing the next one if this fails
+            await play_next_song(guild_id)
+
+async def play_next_song_callback(guild_id: int, error=None):
+    """Callback function for voice_client.play's 'after' parameter."""
+    if error:
+        logging.error(f'Player error in guild {guild_id}: {error}')
+    await play_next_song(guild_id)
+
+@bot.tree.command(name="musicplay", description="播放音樂 | Play music.")
+@describe(url_or_keyword="要播放的Youtube音樂網址或關鍵字 | The Youtube URL or keyword of the music to play.")
+async def slash_music_play(interaction: dc.Interaction, url_or_keyword: str):
+    """播放音樂"""
+    """回傳: None"""
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+
+    # 檢查使用者是否在語音頻道
+    if interaction.user.voice is None:
+        await interaction.response.send_message("請先加入一個語音頻道 | You need to join a voice channel first.", ephemeral=True)
+        return
+
+    voice_channel = interaction.user.voice.channel
+    voice_client = interaction.guild.voice_client
+    guild_id = interaction.guild.id
+
+    # 如果機器人不在語音頻道，或在不同的頻道，則加入/移動
+    if voice_client is None:
+        try:
+            voice_client = await voice_channel.connect()
+            await interaction.response.defer(thinking=True, ephemeral=False) # 先回應，避免超時
+        except Exception as e:
+            # Check if already deferred
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"無法加入語音頻道: {e}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"無法加入語音頻道: {e}", ephemeral=True)
+            logging.error(f"Failed to connect to voice channel: {e}")
+            return
+    elif voice_client.channel != voice_channel:
+        try:
+            await voice_client.disconnect()
+            await voice_client.connect(voice_channel)
+            await interaction.response.defer(thinking=True, ephemeral=False) # 先回應，避免超時
+        except Exception as e:
+            if not interaction.response.is_done():
+                 await interaction.response.send_message(f"無法移動到你的語音頻道: {e}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"無法移動到你的語音頻道: {e}", ephemeral=True)
+            logging.error(f"Failed to move to voice channel: {e}")
+            return
+    else:
+        await interaction.response.defer(thinking=True, ephemeral=False) # 即使已在頻道，也先回應
+
+    # 檢查機器人是否正在播放
+    if voice_client.is_playing() or voice_client.is_paused():
+        # If already deferred or responded, don't defer again
+        if not interaction.response.is_done():
+            await interaction.response.defer(thinking=True, ephemeral=False) # 即使已在頻道，也先回應
+
+    # 使用 yt-dlp 取得音訊來源
+    YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist':'True', 'quiet': True}
+    FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+
+    try:
+        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+            info = ydl.extract_info(url_or_keyword, download=False)
+            # If search result, info might be a playlist with entries
+            if 'entries' in info:
+                # Take the first search result
+                info = info['entries'][0]
+
+            audio_url = info['url'] # Direct stream URL
+            title = info.get('title', '未知歌曲')
+            song_info = {'url': audio_url, 'title': title, 'requester': interaction.user.mention} # Store info
+
+        # 檢查機器人是否正在播放
+        if voice_client.is_playing() or voice_client.is_paused():
+            # Add to queue
+            queues.setdefault(guild_id, [])
+            queues.update({guild_id: [song_info]})
+            await interaction.followup.send(f"✅ 已將 **{title}** 加入佇列。")
+            send_new_info_logging(f"{interaction.user.name} added '{title}' to the queue at {get_hkt_time()}")
+        else:
+            # Play immediately
+            queues.update({guild_id: [song_info]})
+            await play_next_song(guild_id) # Start playing
+            await interaction.followup.send(f"🎶 正在播放: **{title}**")
+            send_new_info_logging(f"{interaction.user.name} started playing '{title}' at {get_hkt_time()}")
+
+        # 播放音訊
+        source = dc.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
+        voice_client.play(source, after=lambda e: logging.info(f'Player error: {e}') if e else None)
+
+        await interaction.followup.send(f"🎶 正在播放: **{title}**")
+        send_new_info_logging(f"{interaction.user.name} started playing '{title}' at {get_hkt_time()}")
+
+    except yt_dlp.utils.DownloadError as e:
+        await interaction.followup.send(f"無法取得歌曲資訊，請檢查網址是否正確或稍後再試。\n錯誤: {e}")
+        logging.error(f"yt-dlp download error: {e}")
+    except Exception as e:
+        await interaction.followup.send(f"播放時發生未預期的錯誤: {e}")
+        logging.error(f"Error during music playback: {e}")
+
 
 """
 @bot.tree.command(name="timeout", description="使一個用戶被停權(需擁有對成員停權權限) | Timeout a user in a text channel(Requires timeout members permission).")
