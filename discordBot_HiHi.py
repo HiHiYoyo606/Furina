@@ -300,7 +300,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     await interaction.followup.send(embed=embed, ephemeral=False)
     await asyncio.sleep(2)
     
-    await interaction.channel.purge(limit=number+2)
+    await interaction.channel.purge(limit=number+1)
 
     send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
 
