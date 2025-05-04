@@ -3,10 +3,8 @@ import google.generativeai as genai
 import os
 import threading
 import logging
-import time
 import asyncio  # 加入 asyncio 避免 race condition
 import random
-import yt_dlp
 from discord.ext import commands
 from discord import Embed
 from discord.app_commands import describe
@@ -191,8 +189,7 @@ async def slash_help(interaction: dc.Interaction):
         "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息 | Delete a certain number of messages.",
-        "/serverinfo": "顯示伺服器資訊 | Show server information.",
-        "/musicplay": "播放音樂 | Play music."
+        "/serverinfo": "顯示伺服器資訊 | Show server information."
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in commands_list.items():
