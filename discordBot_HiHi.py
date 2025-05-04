@@ -300,7 +300,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     )
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
     await interaction.response.send_message(embed=embed, ephemeral=False)
-    send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.", ephemeral=False)
+    send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
 async def slash_server_info(interaction: dc.Interaction):
