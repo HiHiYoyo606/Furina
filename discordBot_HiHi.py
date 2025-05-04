@@ -195,7 +195,7 @@ async def slash_help(interaction: dc.Interaction):
         "/musicplay": "播放音樂 | Play music."
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in commands_list:
+    for command, description in commands_list.items():
         commands_embed.add_field(name=command, value=description, inline=False)
     
     operation_embed = Embed(
@@ -207,7 +207,7 @@ async def slash_help(interaction: dc.Interaction):
         "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
     }
     operation_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in operation_list:
+    for command, description in operation_list.items():
         operation_embed.add_field(name=command, value=description, inline=False)
 
     await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
