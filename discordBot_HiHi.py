@@ -344,8 +344,10 @@ YDL_OPTIONS = {'format': 'bestaudio/best',
                'quiet': True, 
                'default_search': 'auto', 
                "sleep_interval": 5,
-               "max_retries": 3
-               }
+               "max_retries": 3,
+               "source_address": "0.0.0.0",
+               "throttledratelimit": 1000000
+                }
 FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 SONG_INFO_KEYS = ['url', 'title', 'requester'] # Define keys for song info dict
 
