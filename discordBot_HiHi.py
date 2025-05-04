@@ -298,7 +298,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     )
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
     await interaction.followup.send(embed=embed, ephemeral=False)
-    asyncio.sleep(2)
+    await asyncio.sleep(2)
     
     await interaction.channel.purge(limit=number+2)
 
