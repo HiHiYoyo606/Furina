@@ -191,10 +191,11 @@ async def slash_help(interaction: dc.Interaction):
         "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息 | Delete a certain number of messages.",
-        "/serverinfo": "顯示伺服器資訊 | Show server information."
+        "/serverinfo": "顯示伺服器資訊 | Show server information.",
+        "/musicplay": "播放音樂 | Play music."
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in commands_list[0].items():
+    for command, description in commands_list:
         commands_embed.add_field(name=command, value=description, inline=False)
     
     operation_embed = Embed(
@@ -206,7 +207,7 @@ async def slash_help(interaction: dc.Interaction):
         "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
     }
     operation_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in operation_list[0].items():
+    for command, description in operation_list:
         operation_embed.add_field(name=command, value=description, inline=False)
 
     await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
