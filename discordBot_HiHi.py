@@ -343,132 +343,104 @@ SONG_INFO_KEYS = ['url', 'title', 'requester'] # Define keys for song info dict
 
 async def play_next_song(guild_id: int):
     """Plays the next song in the queue for the given guild."""
-    if guild_id in queues and queues[guild_id]:
-        guild = bot.get_guild(guild_id)
-        if not guild:
-            logging.warning(f"Guild {guild_id} not found for playing next song.")
-            queues.pop(guild_id, None) # Clean up queue if guild is gone
-            return
-
-        voice_client = guild.voice_client
-        if not voice_client:
-            logging.warning(f"Voice client not found in guild {guild_id} for playing next song.")
-            queues.pop(guild_id, None) # Clean up queue if voice client is gone
-            return
-
-        # Get next song info
-        # Ensure queue exists and is not empty before popping
-        if guild_id not in queues or not queues[guild_id]:
-             logging.info(f"Queue for guild {guild_id} is empty, stopping playback.")
-             # Optionally disconnect or send a message
-             # await voice_client.disconnect()
-             return
-
-        song_info = queues.pop(guild_id)[0] # Get the first song and remove it from queue
-        url = song_info.get('url', None) # Direct stream URL from extraction
-        title = song_info.get('title', '未知歌曲')
-
-        try:
-            # Create source and play, using the callback for the next song
-            source = dc.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-            voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_song_callback(guild_id, e), bot.loop).result()) # Ensure callback runs
-            logging.info(f"Playing in guild {guild_id}: {title}")
-        except Exception as e:
-            logging.error(f"Error playing next song in guild {guild_id}: {e}")
-            # Try playing the next one if this fails
-            await play_next_song(guild_id)
-
-async def play_next_song_callback(guild_id: int, error=None):
-    """Callback function for voice_client.play's 'after' parameter."""
-    if error:
-        logging.error(f'Player error in guild {guild_id}: {error}')
-    await play_next_song(guild_id) # Call the main function to play the next song
-
-@bot.tree.command(name="musicplay", description="播放音樂 | Play music.")
-@describe(url_or_keyword="要播放的Youtube音樂網址或關鍵字 | The Youtube URL or keyword of the music to play.")
-async def slash_music_play(interaction: dc.Interaction, url_or_keyword: str):
-    """播放音樂"""
-    """回傳: None"""
-    if isinstance(interaction.channel, dc.DMChannel):
-        await interaction.response.send_message("這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+    if guild_id not in queues or not queues[guild_id]:
+        logging.info(f"佇列為空，停止播放。")
+        return
+    
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        logging.warning(f"Guild {guild_id} not found, 清理佇列。")
+        queues.pop(guild_id, None)
         return
 
-    # 檢查使用者是否在語音頻道
+    voice_client = guild.voice_client
+    if not voice_client:
+        logging.warning(f"語音客戶端未連接，清理佇列。")
+        queues.pop(guild_id, None)
+        return
+
+    song_info = queues[guild_id].pop(0) if queues[guild_id] else None
+    if not song_info:
+        logging.info(f"無歌曲可播放。")
+        return
+
+    url = song_info.get('url', None)
+    title = song_info.get('title', '未知歌曲')
+
+    try:
+        source = dc.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+        def next_song_callback(error):
+            asyncio.ensure_future(play_next_song_callback(guild_id, error))
+        voice_client.play(source, after=next_song_callback)
+        logging.info(f"🎶 正在播放: {title}")
+    except Exception as e:
+        logging.error(f"播放時發生錯誤: {e}")
+        await play_next_song(guild_id)
+
+async def play_next_song_callback(guild_id: int, error=None):
+    """Callback function for play_next_song."""
+    if error:
+        logging.error(f'播放錯誤: {error}')
+    await play_next_song(guild_id)
+
+@bot.tree.command(name="musicplay", description="播放音樂 | Play music.")
+async def slash_music_play(interaction: dc.Interaction, url_or_keyword: str):
+    """播放音樂指令"""
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("指令只能在伺服器中使用", ephemeral=True)
+        return
+
     if interaction.user.voice is None:
-        await interaction.response.send_message("請先加入一個語音頻道 | You need to join a voice channel first.", ephemeral=True)
+        await interaction.response.send_message("請先加入語音頻道", ephemeral=True)
         return
 
     voice_channel = interaction.user.voice.channel
     voice_client = interaction.guild.voice_client
     guild_id = interaction.guild.id
 
-    # 如果機器人不在語音頻道，或在不同的頻道，則加入/移動
     if voice_client is None:
         try:
             voice_client = await voice_channel.connect()
-            # Defer response later, only when needed
+        except dc.errors.ClientException:
+            logging.error("機器人已在語音頻道，無法重新連線。")
+            return
         except Exception as e:
-            # Check if already deferred
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"無法加入語音頻道: {e}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"無法加入語音頻道: {e}", ephemeral=True)
-            logging.error(f"Failed to connect to voice channel: {e}")
+            await interaction.followup.send(f"無法加入語音頻道: {e}")
+            logging.error(f"Failed to connect: {e}")
             return
     elif voice_client.channel != voice_channel:
         try:
             await voice_client.disconnect()
-            await voice_client.connect(voice_channel)
-            # Defer response later
+            await voice_channel.connect()
         except Exception as e:
-            if not interaction.response.is_done():
-                 await interaction.response.send_message(f"無法移動到你的語音頻道: {e}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"無法移動到你的語音頻道: {e}", ephemeral=True)
-            logging.error(f"Failed to move to voice channel: {e}")
+            await interaction.followup.send(f"無法移動到語音頻道: {e}")
+            logging.error(f"Failed to move: {e}")
             return
 
-    # Defer interaction response before potentially long operation (yt-dlp)
-    await interaction.response.defer(thinking=True, ephemeral=False)
+    await interaction.response.defer()
 
-    # 使用 yt-dlp 取得音訊來源
     try:
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
             info = ydl.extract_info(url_or_keyword, download=False)
-
-            # If search result, info might be a playlist with entries
-            if '_type' in info and info['_type'] == 'playlist' and 'entries' in info and info['entries']:
-                # Take the first search result
+            if '_type' in info and info['_type'] == 'playlist' and info.get('entries'):
                 info = info['entries'][0]
-            elif 'entries' in info and not info['entries']: # Handle case where search yields no results
-                await interaction.followup.send(f"找不到符合 '{url_or_keyword}' 的歌曲。")
+            elif not info.get('entries'):
+                await interaction.followup.send(f"找不到 '{url_or_keyword}' 的歌曲。")
                 return
 
-            audio_url = info['url'] # Direct stream URL
-            title = info.get('title', '未知歌曲')
-            song_info = {'url': audio_url, 'title': title, 'requester': interaction.user.mention} # Store info
-
-        # 檢查機器人是否正在播放
+            song_info = {'url': info['url'], 'title': info.get('title', '未知歌曲')}
+        
         if voice_client.is_playing() or voice_client.is_paused():
-            # Add to queue
-            if guild_id not in queues:
-                queues[guild_id] = []
-            queues[guild_id].append(song_info)
-            await interaction.followup.send(f"✅ 已將 **{title}** 加入佇列。")
-            send_new_info_logging(f"{interaction.user.name} added '{title}' to the queue at {get_hkt_time()}")
+            queues.setdefault(guild_id, []).append(song_info)
+            await interaction.followup.send(f"✅ 已將 **{song_info['title']}** 加入佇列。")
         else:
-            # Play immediately
-            queues[guild_id] = [song_info] # Start queue with this song
-            await play_next_song(guild_id) # Start playing
-            await interaction.followup.send(f"🎶 正在播放: **{title}**")
-            send_new_info_logging(f"{interaction.user.name} started playing '{title}' at {get_hkt_time()}")
-
+            queues[guild_id] = [song_info]
+            await play_next_song(guild_id)
+            await interaction.followup.send(f"🎶 正在播放: **{song_info['title']}**")
     except yt_dlp.utils.DownloadError as e:
-        await interaction.followup.send(f"無法取得歌曲資訊，請檢查網址是否正確或稍後再試。\n錯誤: {e}")
-        logging.error(f"yt-dlp download error: {e}")
+        await interaction.followup.send(f"無法取得歌曲資訊，請稍後再試。\n錯誤: {e}")
     except Exception as e:
-        await interaction.followup.send(f"播放時發生未預期的錯誤: {e}")
-        logging.error(f"Error during music playback: {e}")
+        await interaction.followup.send(f"發生未預期的錯誤: {e}")
 
 
 """
