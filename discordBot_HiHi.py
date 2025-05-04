@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from datetime import datetime, timedelta, timezone
 
-def random_code(length: int):
+def generate_random_code(length: int):
     """
     Generate a random code with 0~9 and letters.
     """
@@ -26,6 +26,7 @@ TARGET_CHANNEL_IDS = [
     1351206275538485424, 
     1351241107190710292,
 ]
+GEMINI_VERSION = "gemini-2.0-flash"
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
@@ -37,7 +38,15 @@ logging.basicConfig(
 time.timezone = "Asia/Taipei"
 
 def send_new_info_logging(message: str) -> None:
-    logging.info(f"\n[]--------[System Log]--------[]\n\t Msg: {message}\n\tSign: {random_code(7)}\n[]--------[System Log]--------[]")
+    new_info = [
+        "",
+        "[]--------[System Log]--------[]",
+        f"\t Msg: {message}",
+        f"\tSign: {generate_random_code(7)}",
+        "[]--------[System Log]--------[]"
+    ]
+
+    logging.info("\n".join(new_info))
 
 app = Flask(__name__)
 @app.route("/")
@@ -57,7 +66,7 @@ def set_bot():
 
     bot = commands.Bot(command_prefix=None, intents=intents)
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel(GEMINI_VERSION)
     return bot, model
 
 bot, model = set_bot()
@@ -70,8 +79,6 @@ def get_hkt_time() -> str:
 async def fetch_full_history(channel: dc.TextChannel, retry_attempts: int = 0) -> list:
     """取得頻道的完整歷史訊息"""
     """回傳: [{"role": "user", "parts": "訊息內容"}]..."""
-    max_retry_attempts = 5
-
     try:
         history, messages = channel.history(limit=100), []
         async for message in history:  # 限制讀取最近 100 則
@@ -173,6 +180,8 @@ async def help(interaction: dc.Interaction):
         "以下是可用的指令 | The following commands are available:",
         "`/help`",
         "```顯示此說明訊息 | Show this help message.```",
+        "`/random number`",
+        "```抽一個區間內的數字 | Random a number.```",
         "",
         "以下是可用的操作 | The following operations are available:",
         "1. 如果你想重置對話，請輸出`$re`, Send `$re` to reset the conversation.",
@@ -181,6 +190,22 @@ async def help(interaction: dc.Interaction):
     ]
     await interaction.response.send_message("\n".join(help_message), ephemeral=True)
     send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
+
+@bot.tree.command(name="randomnumber", description="抽一個區間內的數字 | Get a random number in a range.")
+async def random_number(interaction: dc.Interaction, min_value: int = 1, max_value: int = 100):
+    """抽一個數字"""
+    """回傳: None"""
+    arr = [random.randint(min_value, max_value) for _ in range(11+45+14)]
+    real_r = random.choice(arr)
+    await interaction.response.send_message(f"# {real_r}", ephemeral=False)
+    send_new_info_logging(f"Someone has asked for a random number at {get_hkt_time()}")
+
+@bot.tree.command(name="randomcode", description="生成一個亂碼 | Get a random code.")
+async def random_code(interaction: dc.Interaction, length: int = 8):
+    """生成一個亂碼"""
+    """回傳: None"""
+    await interaction.response.send_message(f"# {generate_random_code(length)}", ephemeral=False)
+    send_new_info_logging(f"Someone has asked for a random code at {get_hkt_time()}")
 
 @bot.event
 async def on_ready():
