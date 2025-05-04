@@ -337,7 +337,13 @@ async def slash_server_info(interaction: dc.Interaction):
 
 queues = {}
 # yt-dlp options: best audio, don't download playlist if URL is a playlist link, suppress output, auto-search
-YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'default_search': 'auto'}
+YDL_OPTIONS = {'format': 'bestaudio/best', 
+               'noplaylist': True, 
+               'quiet': True, 
+               'default_search': 'auto', 
+               "sleep_interval": 5,
+               "max_retries": 3
+               }
 FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 SONG_INFO_KEYS = ['url', 'title', 'requester'] # Define keys for song info dict
 
