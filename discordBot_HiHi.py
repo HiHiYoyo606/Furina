@@ -188,7 +188,7 @@ async def slash_help(interaction: dc.Interaction):
         "/randomcode": "生成一個亂碼 | Generate a random code.",
         "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
-        "/deletemessage": "刪除一定數量的訊息 | Delete a certain number of messages.",
+        "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
         "/serverinfo": "顯示伺服器資訊 | Show server information."
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
@@ -280,7 +280,7 @@ async def slash_delete_role(interaction: dc.Interaction, role: dc.Role):
     await role.delete()
     await interaction.response.send_message(f"# 已刪除 {role_name}", ephemeral=False)
 
-@bot.tree.command(name="deletemessage", description="刪除一定數量的訊息 | Delete a certain number of messages.")
+@bot.tree.command(name="deletemessage", description="刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)")
 @describe(number="要刪除的訊息數量 | The number of messages to delete.")
 async def slash_delete_message(interaction: dc.Interaction, number: int):
     """刪除一定數量的訊息"""
@@ -288,6 +288,10 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     if isinstance(interaction.channel, dc.DMChannel):
         await interaction.response.send_message("這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
         return
+    if interaction.user.guild_permissions.manage_messages is False:
+        await interaction.response.send_message("你沒有管理訊息的權限 | You don't have the permission to manage messages.", ephemeral=True)
+        return
+
     await interaction.response.defer(thinking=True)  # 延遲回應以保持 interaction 有效
     embed = Embed(
         title=f"正在刪除 {number} 則訊息 | Deleting {number} messages.",
