@@ -291,6 +291,8 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     if isinstance(interaction.channel, dc.DMChannel):
         await interaction.response.send_message("這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
         return
+    
+    await interaction.response.defer(thinking=True)  # 延遲回應以保持 interaction 有效
 
     await interaction.channel.purge(limit=number)
 
@@ -299,7 +301,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
         color=dc.Color.red()
     )
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    await interaction.response.send_message(embed=embed, ephemeral=False)
+    await interaction.followup.send(embed=embed, ephemeral=False)
     send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
