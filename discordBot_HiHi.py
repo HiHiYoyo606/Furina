@@ -203,8 +203,7 @@ async def slash_help(interaction: dc.Interaction):
     for command, description in operation_list[0].items():
         operation_embed.add_field(name=command, value=description, inline=False)
 
-    await interaction.response.send_message(embed=commands_embed, ephemeral=True)
-    await interaction.response.send_message(embed=operation_embed, ephemeral=True)
+    await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
     send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
 
 @bot.tree.command(name="status", description="確認芙寧娜是否在線 | Check if Furina is online.")
