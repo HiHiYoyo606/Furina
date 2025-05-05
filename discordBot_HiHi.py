@@ -391,32 +391,43 @@ async def slash_server_info(interaction: dc.Interaction):
 async def slash_furina_photo(interaction: dc.Interaction):
     """顯示隨機一張芙寧娜的照片"""
     """回傳: None"""
+    # Defer the interaction publicly. We will edit this message later.
+    await interaction.response.defer(thinking=True)
     try:
-        # Defer response as search might take time
-        await interaction.response.defer(thinking=True, ephemeral=False)
-
         search_query = "芙寧娜" # Define the search term
         image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)
 
         if not image_urls:
-            # Use followup for deferred response
-            await interaction.followup.send("抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)", ephemeral=True)
             logging.warning(f"Google Image Search for '{search_query}' returned no results or failed.")
+            # Edit the original deferred message to show the error
+            await interaction.edit_original_response(content="抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)")
             return
-        
+
         random_image_url = random.choice(image_urls)
+        send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
         embed = Embed(
             title="我可愛嗎:D | Am I cute?:D",
             color=dc.Color.blue()
         )
         embed.set_image(url=random_image_url)
-        embed.set_footer(text=f"圖片來源 Source: 網路搜尋 web search | Powered by HiHiYoyo606.")
+        embed.set_footer(text=f"圖片來源 Source: Pinterest | Powered by HiHiYoyo606.")
 
-        await interaction.followup.send(embed=embed, ephemeral=False)
+        # Edit the original deferred message to show the embed
+        await interaction.edit_original_response(content=None, embed=embed)
         send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
+
     except Exception as e:
+        # Log the error
         send_new_error_logging(f"Error in slash_furina_photo: {e}")
-        await interaction.followup.send("抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)", ephemeral=True)
+        try:
+            # Try to edit the original deferred message to show a generic error
+            await interaction.edit_original_response(content="執行此指令時發生了內部錯誤，請稍後再試。")
+        except dc.NotFound:
+            # If editing fails, the interaction likely expired or was deleted
+            send_new_error_logging(f"Interaction expired or was deleted before sending error message for slash_furina_photo for {interaction.user}.")
+        except dc.HTTPException as http_e:
+             # Handle potential other HTTP errors during edit
+             send_new_error_logging(f"HTTP error editing interaction for slash_furina_photo error message: {http_e}")
 
 # maybe music features
 
