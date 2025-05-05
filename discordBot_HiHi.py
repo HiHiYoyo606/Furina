@@ -9,6 +9,8 @@ from discord.ext import commands
 from discord import Embed
 from discord.app_commands import describe
 from dotenv import load_dotenv
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from flask import Flask
 from datetime import datetime, timedelta, timezone
     
@@ -22,6 +24,8 @@ GEMINI_VERSION = "gemini-2.0-flash"
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
 logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
@@ -52,6 +56,48 @@ def send_new_info_logging(message: str) -> None:
     ]
 
     logging.info("\n".join(new_info))
+
+def send_new_error_logging(message: str) -> None:
+    new_info = [
+        "",
+        "[]--------[System Log]--------[]",
+        f"\t Msg: {message}",
+        f"\tSign: {generate_random_code(7)}",
+        "[]--------[System Log]--------[]"
+    ]
+
+    logging.error("\n".join(new_info))
+
+async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 50):
+    """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
+    if not api_key or not cse_id:
+        send_new_error_logging("缺少 Google Search API Key 或 CSE ID，無法執行圖片搜尋。")
+        return []
+    try:
+        # googleapiclient is blocking, run in executor
+        loop = asyncio.get_running_loop()
+        service = await loop.run_in_executor(None, lambda: build("customsearch", "v1", developerKey=api_key))
+        # The search call might also be blocking
+        result = await loop.run_in_executor(None, lambda: service.cse().list(
+            q=query,
+            cx=cse_id,
+            searchType='image', # Specify image search
+            num=num_results,    # Number of results to return (API max 10 per page)
+            safe='high'         # Optional: filter results ('medium', 'off')
+        ).execute())
+
+        # Extract image links from results
+        items = result.get('items', [])
+        image_urls = [item.get('link') for item in items if item.get('link')] # Ensure link exists
+        return image_urls
+    except HttpError as e:
+        error_details = e.content.decode('utf-8') if e.content else '(No details)'
+        send_new_error_logging(f"Google Search API 發生 HTTP 錯誤: {e.resp.status} - {error_details}")
+        return []
+    except Exception as e:
+        logging.exception(f"執行 Google 圖片搜尋時發生未預期的錯誤: {e}")
+        return []
+
 
 app = Flask(__name__)
 @app.route("/")
@@ -97,7 +143,7 @@ async def chat_fetch_full_history(channel: dc.TextChannel, retry_attempts: int =
     
     except dc.HTTPException as e:
         if e.status != 429:
-            logging.error(f"HTTP error fetching history: {e.status} - {e.text}")
+            send_new_error_logging(f"HTTP error fetching history: {e.status} - {e.text}")
             return []
         
         retry_after = int(e.response.headers.get("Retry-After", 1))
@@ -109,7 +155,7 @@ async def chat_fetch_full_history(channel: dc.TextChannel, retry_attempts: int =
         return await chat_fetch_full_history(channel, retry_attempts)
     
     except Exception as e:
-        logging.error(f"Error fetching history: {e}")
+        send_new_error_logging(f"Error fetching history: {e}")
         return []
     
 async def chat_ask_question(question: dc.Message) -> str:
@@ -171,7 +217,7 @@ async def chat_process_message(message: dc.Message) -> None:
         
         await chat_sent_message_to_channel(message, response_strip)
     except Exception as e:
-        logging.error(f"Error processing message: {e}")
+        send_new_error_logging(f"Error processing message: {e}")
 
 @bot.tree.command(name="help", description="顯示說明訊息 | Show the informations.")
 async def slash_help(interaction: dc.Interaction):
@@ -338,6 +384,35 @@ async def slash_server_info(interaction: dc.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=False)
     send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
 
+@bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片 | Show a random photo of Furina.")
+async def slash_furina_photo(interaction: dc.Interaction):
+    """顯示隨機一張芙寧娜的照片"""
+    """回傳: None"""
+    # Defer response as search might take time
+    await interaction.response.defer(thinking=True, ephemeral=False)
+
+    search_query = "芙寧娜" # Define the search term
+    image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)
+
+    if not image_urls:
+        # Use followup for deferred response
+        await interaction.followup.send("抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)", ephemeral=True)
+        logging.warning(f"Google Image Search for '{search_query}' returned no results or failed.")
+        return
+    
+    random_image_url = random.choice(image_urls)
+    embed = Embed(
+        title="我可愛嗎:D | Am I cute?:D",
+        color=dc.Color.blue()
+    )
+    embed.set_image(url=random_image_url)
+    embed.set_footer(text=f"圖片來源 Source: 網路搜尋 web search | Powered by HiHiYoyo606.")
+
+    await interaction.followup.send(embed=embed, ephemeral=False)
+    send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
+
+
+
 # maybe music features
 
 """
@@ -366,7 +441,7 @@ async def on_ready():
         synced = await bot.tree.sync()
         send_new_info_logging(f"Synced {len(synced)} commands")
     except Exception as e:
-        logging.error(f"Error syncing commands: {e}")
+        send_new_error_logging(f"Error syncing commands: {e}")
 
     await asyncio.sleep(3)  # 確保 WebSocket 初始化完成
 
@@ -387,7 +462,7 @@ async def main():
             return await main()
 
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        send_new_error_logging(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
