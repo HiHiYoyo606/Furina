@@ -68,7 +68,7 @@ def send_new_error_logging(message: str) -> None:
 
     logging.error("\n".join(new_info))
 
-async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 50):
+async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10):
     """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
     if not api_key or not cse_id:
         send_new_error_logging("缺少 Google Search API Key 或 CSE ID，無法執行圖片搜尋。")
@@ -238,7 +238,7 @@ async def slash_help(interaction: dc.Interaction):
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
         "/serverinfo": "顯示伺服器資訊 | Show server information.",
-        "/furinaphoto": "顯示隨機一張芙寧娜的照片 | Show a random photo of Furina.\n",
+        "/furinaphoto": "顯示隨機一張芙寧娜的照片 | Show a random photo of Furina.",
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in commands_list.items():
