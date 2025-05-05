@@ -92,12 +92,14 @@ async def google_search(query: str, api_key: str, cse_id: str, num_results: int 
         return image_urls
     except HttpError as e:
         error_details = e.content.decode('utf-8') if e.content else '(No details)'
-        send_new_error_logging(f"Google Search API 發生 HTTP 錯誤: {e.resp.status} - {error_details}")
+        log_message = f"Google Search API 發生 HTTP 錯誤: {e.resp.status} - {error_details}"
+        if e.resp.status == 429:
+            log_message += " (可能已達每日查詢配額)"
+        send_new_error_logging(log_message)
         return []
     except Exception as e:
         logging.exception(f"執行 Google 圖片搜尋時發生未預期的錯誤: {e}")
         return []
-
 
 app = Flask(__name__)
 @app.route("/")
@@ -235,7 +237,8 @@ async def slash_help(interaction: dc.Interaction):
         "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
-        "/serverinfo": "顯示伺服器資訊 | Show server information."
+        "/serverinfo": "顯示伺服器資訊 | Show server information.",
+        "/furinaphoto": "顯示隨機一張芙寧娜的照片 | Show a random photo of Furina.\n",
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in commands_list.items():
@@ -384,34 +387,36 @@ async def slash_server_info(interaction: dc.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=False)
     send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
 
-@bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片 | Show a random photo of Furina.")
+@bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片(每日搜尋額度有限請見諒) | Show a random photo of Furina.(Daily search limit exists)")
 async def slash_furina_photo(interaction: dc.Interaction):
     """顯示隨機一張芙寧娜的照片"""
     """回傳: None"""
-    # Defer response as search might take time
-    await interaction.response.defer(thinking=True, ephemeral=False)
+    try:
+        # Defer response as search might take time
+        await interaction.response.defer(thinking=True, ephemeral=False)
 
-    search_query = "芙寧娜" # Define the search term
-    image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)
+        search_query = "芙寧娜" # Define the search term
+        image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)
 
-    if not image_urls:
-        # Use followup for deferred response
+        if not image_urls:
+            # Use followup for deferred response
+            await interaction.followup.send("抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)", ephemeral=True)
+            logging.warning(f"Google Image Search for '{search_query}' returned no results or failed.")
+            return
+        
+        random_image_url = random.choice(image_urls)
+        embed = Embed(
+            title="我可愛嗎:D | Am I cute?:D",
+            color=dc.Color.blue()
+        )
+        embed.set_image(url=random_image_url)
+        embed.set_footer(text=f"圖片來源 Source: 網路搜尋 web search | Powered by HiHiYoyo606.")
+
+        await interaction.followup.send(embed=embed, ephemeral=False)
+        send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
+    except Exception as e:
+        send_new_error_logging(f"Error in slash_furina_photo: {e}")
         await interaction.followup.send("抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)", ephemeral=True)
-        logging.warning(f"Google Image Search for '{search_query}' returned no results or failed.")
-        return
-    
-    random_image_url = random.choice(image_urls)
-    embed = Embed(
-        title="我可愛嗎:D | Am I cute?:D",
-        color=dc.Color.blue()
-    )
-    embed.set_image(url=random_image_url)
-    embed.set_footer(text=f"圖片來源 Source: 網路搜尋 web search | Powered by HiHiYoyo606.")
-
-    await interaction.followup.send(embed=embed, ephemeral=False)
-    send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
-
-
 
 # maybe music features
 
