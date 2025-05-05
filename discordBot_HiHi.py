@@ -238,9 +238,9 @@ async def slash_random_code(interaction: dc.Interaction, length: int = 8):
 
 @bot.tree.command(name="createrole", description="創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)")
 @describe(role_name="身分組的名稱 | The name of the role.")
-@describe(r="rgb紅色碼(0~255 預設255) | r value (0~255, default 0).")
-@describe(g="rgb綠色碼(0~255 預設255) | g value (0~255, default 0).")
-@describe(b="rgb藍色碼(0~255 預設255) | b value (0~255, default 0).")
+@describe(r="rgb紅色碼(0~255 預設0) | r value (0~255, default 0).")
+@describe(g="rgb綠色碼(0~255 預設0) | g value (0~255, default 0).")
+@describe(b="rgb藍色碼(0~255 預設0) | b value (0~255, default 0).")
 @describe(hoist="是否分隔顯示(預設不分隔) | Whether to hoist the role (default False).")
 @describe(mentionable="是否可提及(預設是) | Whether the role can be mentioned (default True).")
 async def slash_create_role(interaction: dc.Interaction, 
@@ -259,8 +259,8 @@ async def slash_create_role(interaction: dc.Interaction,
         await interaction.response.send_message("你沒有管理身分組的權限 | You don't have the permission to manage roles.", ephemeral=True)
         return
 
-    role_color = dc.Colour.from_rgb(r, g, b)
-    role = await interaction.guild.create_role(name=role_name, colour=dc.Colour(role_color), hoist=hoist, mentionable=mentionable)
+    role_color = dc.Color.from_rgb(r, g, b)
+    role = await interaction.guild.create_role(name=role_name, colour=role_color, hoist=hoist, mentionable=mentionable)
     await interaction.response.send_message(f"# {role.mention}", ephemeral=False)
     send_new_info_logging(f"Someone has created a role at {get_hkt_time()} in his/her server.")
 
@@ -316,7 +316,7 @@ async def slash_server_info(interaction: dc.Interaction):
     server_name = interaction.guild.name
     member_count = interaction.guild.member_count
     owner = interaction.guild.owner
-    create_at = interaction.guild.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    create_at = interaction.guild.created_at.strftime("%Y-%m-%d")
     description = interaction.guild.description
     icon = interaction.guild.icon.url if interaction.guild.icon else None
     banner = interaction.guild.banner.url if interaction.guild.banner else None
