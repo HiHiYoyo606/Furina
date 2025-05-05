@@ -405,15 +405,8 @@ async def slash_furina_photo(interaction: dc.Interaction):
 
         random_image_url = random.choice(image_urls)
         send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
-        embed = Embed(
-            title="我可愛嗎:D | Am I cute?:D",
-            color=dc.Color.blue()
-        )
-        embed.set_image(url=random_image_url)
-        embed.set_footer(text=f"圖片來源 Source: Pinterest | Powered by HiHiYoyo606.")
+        await interaction.edit_original_response(content=f"# 我可愛嗎:D | Am I cute?:D\n{random_image_url}")
 
-        # Edit the original deferred message to show the embed
-        await interaction.edit_original_response(content=None, embed=embed)
         send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
 
     except Exception as e:
