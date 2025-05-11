@@ -84,7 +84,7 @@ async def send_new_error_logging(message: str) -> None:
 async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10, start_index: int = 1):
     """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
     if not api_key or not cse_id:
-        send_new_error_logging("缺少 Google Search API Key 或 CSE ID，無法執行圖片搜尋。")
+        await send_new_error_logging("缺少 Google Search API Key 或 CSE ID，無法執行圖片搜尋。")
         return []
     try:
         # googleapiclient is blocking, run in executor
@@ -109,7 +109,7 @@ async def google_search(query: str, api_key: str, cse_id: str, num_results: int 
         log_message = f"Google Search API 發生 HTTP 錯誤: {e.resp.status} - {error_details}"
         if e.resp.status == 429:
             log_message += " (可能已達每日查詢配額)"
-        send_new_error_logging(log_message)
+        await send_new_error_logging(log_message)
         return []
     except Exception as e:
         logging.exception(f"執行 Google 圖片搜尋時發生未預期的錯誤: {e}")
@@ -117,10 +117,10 @@ async def google_search(query: str, api_key: str, cse_id: str, num_results: int 
 
 app = Flask(__name__)
 @app.route("/")
-def home():
+async def home():
     global connect_time
     if connect_time % 5 == 0:
-        send_new_info_logging(f"Flask site connection No.{connect_time}")
+        await send_new_info_logging(f"Flask site connection No.{connect_time}")
     connect_time += 1
     return "Furina is now awake! :D"
 port = int(os.environ.get("PORT", 8080))
@@ -159,7 +159,7 @@ async def chat_fetch_full_history(channel: dc.TextChannel, retry_attempts: int =
     
     except dc.HTTPException as e:
         if e.status != 429:
-            send_new_error_logging(f"HTTP error fetching history: {e.status} - {e.text}")
+            await send_new_error_logging(f"HTTP error fetching history: {e.status} - {e.text}")
             return []
         
         retry_after = int(e.response.headers.get("Retry-After", 1))
@@ -171,7 +171,7 @@ async def chat_fetch_full_history(channel: dc.TextChannel, retry_attempts: int =
         return await chat_fetch_full_history(channel, retry_attempts)
     
     except Exception as e:
-        send_new_error_logging(f"Error fetching history: {e}")
+        await send_new_error_logging(f"Error fetching history: {e}")
         return []
     
 async def chat_ask_question(question: dc.Message) -> str:
@@ -186,7 +186,7 @@ async def chat_ask_question(question: dc.Message) -> str:
     PERSONA_PROMPT_CONCISENESS = "5. It's better not to say too much sentence in one message, you can wait the user provide more questions."
 
     user_name = question.author.name
-    send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
+    await send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
     full_history = await chat_fetch_full_history(question.channel)
     
     system_prompt = f"{PERSONA_PROMPT_BASE}{PERSONA_PROMPT_RELATIONSHIP}"
@@ -213,7 +213,7 @@ async def chat_sent_message_to_channel(original_message: dc.Message, message_to_
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    send_new_info_logging(f"Bot successfully sent message at {get_hkt_time()}")
+    await send_new_info_logging(f"Bot successfully sent message at {get_hkt_time()}")
 
 async def chat_process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
@@ -235,7 +235,7 @@ async def chat_process_message(message: dc.Message) -> None:
         
         await chat_sent_message_to_channel(message, response_strip)
     except Exception as e:
-        send_new_error_logging(f"Error processing message: {e}")
+        await send_new_error_logging(f"Error processing message: {e}")
 
 @bot.tree.command(name="help", description="顯示說明訊息 | Show the informations.")
 async def slash_help(interaction: dc.Interaction):
@@ -273,14 +273,14 @@ async def slash_help(interaction: dc.Interaction):
         operation_embed.add_field(name=command, value=description, inline=False)
 
     await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
-    send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
+    await send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
 
 @bot.tree.command(name="status", description="確認芙寧娜是否在線 | Check if Furina is online.")
 async def slash_status(interaction: dc.Interaction):
     """確認芙寧娜是否在線"""
     """回傳: None"""
     await interaction.response.send_message("# :white_check_mark::droplet:", ephemeral=True)
-    send_new_info_logging(f"Someone has checked Furina's status at {get_hkt_time()}")
+    await send_new_info_logging(f"Someone has checked Furina's status at {get_hkt_time()}")
 
 @bot.tree.command(name="randomnumber", description="抽一個區間內的數字 | Get a random number in a range.")
 @describe(min_value="隨機數字的最小值 (預設 1) | The minimum value for the random number (default 1).")
@@ -291,7 +291,7 @@ async def slash_random_number(interaction: dc.Interaction, min_value: int = 1, m
     arr = [random.randint(min_value, max_value) for _ in range(11+45+14)] # lol
     real_r = random.choice(arr)
     await interaction.response.send_message(f"# {real_r}", ephemeral=False)
-    send_new_info_logging(f"Someone has asked for a random number at {get_hkt_time()}")
+    await send_new_info_logging(f"Someone has asked for a random number at {get_hkt_time()}")
 
 @bot.tree.command(name="randomcode", description="生成一個亂碼 | Get a random code.")
 @describe(length="亂碼的長度 (預設 8) | The length of the random code (default 8).")
@@ -299,7 +299,7 @@ async def slash_random_code(interaction: dc.Interaction, length: int = 8):
     """生成一個亂碼"""
     """回傳: None"""
     await interaction.response.send_message(f"# {generate_random_code(length)}", ephemeral=False)
-    send_new_info_logging(f"Someone has asked for a random code at {get_hkt_time()}")
+    await send_new_info_logging(f"Someone has asked for a random code at {get_hkt_time()}")
 
 @bot.tree.command(name="createrole", description="創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)")
 @describe(role_name="身分組的名稱 | The name of the role.")
@@ -327,7 +327,7 @@ async def slash_create_role(interaction: dc.Interaction,
     role_color = dc.Color.from_rgb(r, g, b)
     role = await interaction.guild.create_role(name=role_name, colour=role_color, hoist=hoist, mentionable=mentionable)
     await interaction.response.send_message(f"# {role.mention}", ephemeral=False)
-    send_new_info_logging(f"Someone has created a role at {get_hkt_time()} in his/her server.")
+    await send_new_info_logging(f"Someone has created a role at {get_hkt_time()} in his/her server.")
 
 @bot.tree.command(name="deleterole", description="刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)")
 @describe(role="要刪除的身分組 | The role to be deleted.")
@@ -368,7 +368,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     
     await interaction.channel.purge(limit=number+1)
 
-    send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
+    await send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
 async def slash_server_info(interaction: dc.Interaction):
@@ -401,7 +401,7 @@ async def slash_server_info(interaction: dc.Interaction):
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
 
     await interaction.response.send_message(embed=embed, ephemeral=False)
-    send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
+    await send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
 
 @bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片(每日搜尋額度有限請見諒) | Show a random photo of Furina.(Daily search limit exists)")
 async def slash_furina_photo(interaction: dc.Interaction):
@@ -414,7 +414,7 @@ async def slash_furina_photo(interaction: dc.Interaction):
         # Generate a random start index from the possible pages (1, 11, 21, ..., 91)
         possible_start_indices = [1 + i * 10 for i in range(10)] # Generates [1, 11, 21, ..., 91]
         random_start_index = random.choice(possible_start_indices)
-        send_new_info_logging(f"Searching Google Images for '{search_query}' starting from index {random_start_index}")
+        await send_new_info_logging(f"Searching Google Images for '{search_query}' starting from index {random_start_index}")
 
         # Perform a single search with the random start index
         image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID, num_results=10, start_index=random_start_index)
@@ -426,23 +426,23 @@ async def slash_furina_photo(interaction: dc.Interaction):
             return
         # No need to shuffle if we only fetched one page's worth
         random_image_url = random.choice(image_urls)
-        send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
+        await send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
         await interaction.edit_original_response(content=f"# 我可愛嗎:D | Am I cute?:D\n{random_image_url}")
 
-        send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
+        await send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
 
     except Exception as e:
         # Log the error
-        send_new_error_logging(f"Error in slash_furina_photo: {e}")
+        await send_new_error_logging(f"Error in slash_furina_photo: {e}")
         try:
             # Try to edit the original deferred message to show a generic error
             await interaction.edit_original_response(content="執行此指令時發生了內部錯誤，請稍後再試。")
         except dc.NotFound:
             # If editing fails, the interaction likely expired or was deleted
-            send_new_error_logging(f"Interaction expired or was deleted before sending error message for slash_furina_photo for {interaction.user}.")
+            await send_new_error_logging(f"Interaction expired or was deleted before sending error message for slash_furina_photo for {interaction.user}.")
         except dc.HTTPException as http_e:
              # Handle potential other HTTP errors during edit
-             send_new_error_logging(f"HTTP error editing interaction for slash_furina_photo error message: {http_e}")
+             await send_new_error_logging(f"HTTP error editing interaction for slash_furina_photo error message: {http_e}")
 
 # maybe music features
 
@@ -470,9 +470,9 @@ async def on_ready():
 
     try:
         synced = await bot.tree.sync()
-        send_new_info_logging(f"Synced {len(synced)} commands")
+        await send_new_info_logging(f"Synced {len(synced)} commands")
     except Exception as e:
-        send_new_error_logging(f"Error syncing commands: {e}")
+        await send_new_error_logging(f"Error syncing commands: {e}")
 
     await asyncio.sleep(3)  # 確保 WebSocket 初始化完成
 
@@ -483,7 +483,7 @@ async def on_message(message: dc.Message):
 async def main():
     try:
         await bot.start(DISCORD_BOT_API_KEY)
-        send_new_info_logging(f"Bot successfully started at {get_hkt_time()}") 
+        await send_new_info_logging(f"Bot successfully started at {get_hkt_time()}") 
     except dc.HTTPException as e:
         if e.status == 429:
             retry_after = e.response.headers.get("Retry-After")
@@ -493,7 +493,7 @@ async def main():
             return await main()
 
     except Exception as e:
-        send_new_error_logging(f"An error occurred: {e}")
+        await send_new_error_logging(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
