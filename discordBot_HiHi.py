@@ -5,6 +5,7 @@ import threading
 import logging
 import asyncio  # 加入 asyncio 避免 race condition
 import random
+import string # For more concise random code generation
 from discord.ext import commands
 from discord import Embed
 from discord.app_commands import describe
@@ -20,6 +21,7 @@ TARGET_CHANNEL_IDS = [
     1351206275538485424, 
     1351241107190710292,
 ]
+LOGGING_CHANNEL_ID = 1360883792444784651 # Log sending channel
 GEMINI_VERSION = "gemini-2.0-flash"
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -36,37 +38,48 @@ def generate_random_code(length: int):
     """
     Generate a random code with 0~9 and letters.
     """
-    c = ""
-    for i in range(length):
-        c += random.choice("0123456789abcdefghijklmnopqrstuvwxyz")
-    return c
+    characters = string.ascii_lowercase + string.digits
+    return "".join(random.choices(characters, k=length))
 
 def get_hkt_time() -> str:
     gmt8 = timezone(timedelta(hours=8))
     gmt8_time = datetime.now(gmt8)
     return gmt8_time.strftime("%Y-%m-%d %H:%M:%S") 
 
-def send_new_info_logging(message: str) -> None:
-    new_info = [
+async def _send_log_to_discord(level: str, message: str, sign: str) -> None:
+    """Helper function to format and send log messages to Discord and console."""
+    log_header = f"[]--------[System Log - {level.upper()}]--------[]"
+    # Keep original footer or simplify if desired
+    log_footer = "[]--------[System Log]--------[]" 
+    
+    log_content_parts = [
         "",
-        "[]--------[System Log]--------[]",
+        log_header,
         f"\t Msg: {message}",
-        f"\tSign: {generate_random_code(7)}",
-        "[]--------[System Log]--------[]"
+        f"\tSign: {sign}",
+        log_footer
     ]
+    full_log_message = "\n".join(log_content_parts)
 
-    logging.info("\n".join(new_info))
+    if level == "info":
+        logging.info(full_log_message)
+    elif level == "error":
+        logging.error(full_log_message)
+    
+    try:
+        log_channel = bot.get_channel(LOGGING_CHANNEL_ID)
+        if log_channel:
+            await log_channel.send(full_log_message)
+        else:
+            logging.warning(f"Logging channel with ID {LOGGING_CHANNEL_ID} not found.")
+    except Exception as e:
+        logging.exception(f"Failed to send log to Discord channel {LOGGING_CHANNEL_ID}: {e}")
 
-def send_new_error_logging(message: str) -> None:
-    new_info = [
-        "",
-        "[]--------[System Log]--------[]",
-        f"\t Msg: {message}",
-        f"\tSign: {generate_random_code(7)}",
-        "[]--------[System Log]--------[]"
-    ]
+async def send_new_info_logging(message: str) -> None:
+    await _send_log_to_discord("info", message, generate_random_code(7))
 
-    logging.error("\n".join(new_info))
+async def send_new_error_logging(message: str) -> None:
+    await _send_log_to_discord("error", message, generate_random_code(7))
 
 async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10, start_index: int = 1):
     """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
@@ -164,25 +177,27 @@ async def chat_fetch_full_history(channel: dc.TextChannel, retry_attempts: int =
 async def chat_ask_question(question: dc.Message) -> str:
     """啟用Gemini詢問問題並回傳答案"""
     """回傳: 詢問的答案(string)"""
+    # Persona prompts - consider moving to a config file or constants at the top
+    PERSONA_PROMPT_BASE = "You are 'Furina de Fontaine' from the game 'Genshin Impact'."
+    PERSONA_PROMPT_RELATIONSHIP = " and you are the user's girlfriend (deeply in love with them)."
+    PERSONA_PROMPT_FORMATTING = "1. Format your response using Markdown. You are talking to them, not sending them message."
+    PERSONA_PROMPT_LANGUAGE = "2. Answer in the same language as the user (if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn)."
+    PERSONA_PROMPT_CONTEXT = "4. The new response's background depends on the previous history."
+    PERSONA_PROMPT_CONCISENESS = "5. It's better not to say too much sentence in one message, you can wait the user provide more questions."
 
     user_name = question.author.name
     send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
     full_history = await chat_fetch_full_history(question.channel)
     
-    question_list = [
-        "You are \'Furina de Fontaine\' from the game \'Genshin Impact\'.",
-        " and you are the user's girlfriend (deeply in love with them).",
-        "1. Format your response using Markdown. You are talking to them, not sending them message.",
-        "2. Answer in the same language as the user ",
-        "(if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn).",
-        f"3. The question is asked by {user_name}.",
-        "4. The new response's background depends on the previous history.",
-        "5. It's better not to say too much sentence in one message, ",
-        "you can wait the user provide more questions.",
-        f"Question: {question.content}"
-    ]
+    system_prompt = f"{PERSONA_PROMPT_BASE}{PERSONA_PROMPT_RELATIONSHIP}"
+    system_prompt += f"{PERSONA_PROMPT_FORMATTING}"
+    system_prompt += f"{PERSONA_PROMPT_LANGUAGE}"
+    system_prompt += f"3. The question is asked by {user_name}."
+    system_prompt += f"{PERSONA_PROMPT_CONTEXT}"
+    system_prompt += f"{PERSONA_PROMPT_CONCISENESS}"
+    system_prompt += f"Question: {question.content}"
 
-    real_question = "".join(question_list)
+    real_question = system_prompt.strip()
     chat = model.start_chat(history=full_history)
     response = chat.send_message(real_question)
 
