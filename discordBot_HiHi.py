@@ -52,14 +52,24 @@ async def _send_log_to_discord(level: str, message: str, sign: str) -> None:
     # Keep original footer or simplify if desired
     log_footer = "[]--------[System Log]--------[]" 
     
+    main_part = [
+        f"\t Msg: {message}",
+        f"\tSign: {sign}",
+        f"\tTime: {get_hkt_time()}"
+    ]
     log_content_parts = [
         "",
         log_header,
-        f"\t Msg: {message}",
-        f"\tSign: {sign}",
+        "\n".join(main_part),
+        "",
         log_footer
     ]
     full_log_message = "\n".join(log_content_parts)
+    embed = Embed(
+        colour=[dc.Color.blue() if level == "info" else dc.Color.red()][0],
+        title=f"System Log - {level.upper()}",
+        description="\n".join(main_part),
+    )
 
     if level == "info":
         logging.info(full_log_message)
@@ -69,7 +79,7 @@ async def _send_log_to_discord(level: str, message: str, sign: str) -> None:
     try:
         log_channel = bot.get_channel(LOGGING_CHANNEL_ID)
         if log_channel:
-            await log_channel.send(full_log_message)
+            await log_channel.send(embed=embed)
         else:
             logging.warning(f"Logging channel with ID {LOGGING_CHANNEL_ID} not found.")
     except Exception as e:
