@@ -117,10 +117,10 @@ async def google_search(query: str, api_key: str, cse_id: str, num_results: int 
 
 app = Flask(__name__)
 @app.route("/")
-async def home():
+def home():
     global connect_time
     if connect_time % 5 == 0:
-        await send_new_info_logging(f"Flask site connection No.{connect_time}")
+        asyncio.run(send_new_info_logging(f"Flask site connection No.{connect_time}"))
     connect_time += 1
     return "Furina is now awake! :D"
 port = int(os.environ.get("PORT", 8080))
