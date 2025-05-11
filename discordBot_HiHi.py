@@ -68,7 +68,7 @@ def send_new_error_logging(message: str) -> None:
 
     logging.error("\n".join(new_info))
 
-async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10):
+async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10, start_index: int = 1):
     """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
     if not api_key or not cse_id:
         send_new_error_logging("缺少 Google Search API Key 或 CSE ID，無法執行圖片搜尋。")
@@ -82,7 +82,8 @@ async def google_search(query: str, api_key: str, cse_id: str, num_results: int 
             q=query,
             cx=cse_id,
             searchType='image', # Specify image search
-            num=num_results,    # Number of results to return (API max 10 per page)
+            num=min(num_results, 10), # Ensure num is never more than 10
+            start=start_index,       # Starting index for results
             safe='high'         # Optional: filter results ('medium', 'off')
         ).execute())
 
@@ -395,14 +396,20 @@ async def slash_furina_photo(interaction: dc.Interaction):
     await interaction.response.defer(thinking=True)
     try:
         search_query = "芙寧娜" # Define the search term
-        image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID)
+        # Generate a random start index from the possible pages (1, 11, 21, ..., 91)
+        possible_start_indices = [1 + i * 10 for i in range(10)] # Generates [1, 11, 21, ..., 91]
+        random_start_index = random.choice(possible_start_indices)
+        send_new_info_logging(f"Searching Google Images for '{search_query}' starting from index {random_start_index}")
+
+        # Perform a single search with the random start index
+        image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID, num_results=10, start_index=random_start_index)
 
         if not image_urls:
-            logging.warning(f"Google Image Search for '{search_query}' returned no results or failed.")
+            logging.warning(f"Google Image Search for '{search_query}' (start={random_start_index}) returned no results or failed.")
             # Edit the original deferred message to show the error
             await interaction.edit_original_response(content="抱歉，我找不到任何芙寧娜的照片！(網路搜尋失敗或沒有結果)")
             return
-
+        # No need to shuffle if we only fetched one page's worth
         random_image_url = random.choice(image_urls)
         send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
         await interaction.edit_original_response(content=f"# 我可愛嗎:D | Am I cute?:D\n{random_image_url}")
