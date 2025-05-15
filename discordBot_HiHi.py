@@ -46,35 +46,33 @@ def get_hkt_time() -> str:
     gmt8_time = datetime.now(gmt8)
     return gmt8_time.strftime("%Y-%m-%d %H:%M:%S") 
 
-async def _send_log_to_discord(level: str, message: str, sign: str) -> None:
-    """Helper function to format and send log messages to Discord and console."""
-    log_header = f"[]--------[System Log - {level.upper()}]--------[]"
-    # Keep original footer or simplify if desired
-    log_footer = "[]--------[System Log]--------[]" 
-    
+def _send_log_to_main_logging(level: str, message: str) -> None:
     main_part = [
+        f"[]--------[System Log - {level.upper()}]--------[]",
         f"\t Msg: {message}",
-        f"\tSign: {sign}",
-        f"\tTime: {get_hkt_time()}"
+        f"\tTime: {get_hkt_time()}",
+        "[]--------[System Log]--------[]" 
     ]
-    log_content_parts = [
-        "",
-        log_header,
-        "\n".join(main_part),
-        "",
-        log_footer
-    ]
-    full_log_message = "\n".join(log_content_parts)
-    embed = Embed(
-        colour=[dc.Color.blue() if level == "info" else dc.Color.red()][0],
-        title=f"System Log - {level.upper()}",
-        description="\n".join(main_part),
-    )
+    
+    full_log_message = "\n".join(main_part)
 
     if level == "info":
         logging.info(full_log_message)
     elif level == "error":
         logging.error(full_log_message)
+
+async def _send_log_to_discord(level: str, message: str) -> None:
+    """Helper function to format and send log messages to Discord and console."""
+    
+    embed_parts = [
+        message,
+        f"{get_hkt_time()}",
+    ]
+    embed = Embed(
+        colour=[dc.Color.blue() if level == "info" else dc.Color.red()][0],
+        title=f"System Log - {level.upper()}",
+        description="\n".join(embed_parts),
+    )
     
     try:
         log_channel = bot.get_channel(LOGGING_CHANNEL_ID)
@@ -85,11 +83,15 @@ async def _send_log_to_discord(level: str, message: str, sign: str) -> None:
     except Exception as e:
         logging.exception(f"Failed to send log to Discord channel {LOGGING_CHANNEL_ID}: {e}")
 
-async def send_new_info_logging(message: str) -> None:
-    await _send_log_to_discord("info", message, generate_random_code(7))
+async def send_new_info_logging(message: str, to_discord: bool = True) -> None:
+    _send_log_to_main_logging("info", message)
+    if to_discord:
+        await _send_log_to_discord("info", message)
 
-async def send_new_error_logging(message: str) -> None:
-    await _send_log_to_discord("error", message, generate_random_code(7))
+async def send_new_error_logging(message: str, to_discord: bool = True) -> None:
+    _send_log_to_main_logging("error", message)
+    if to_discord:
+        await _send_log_to_discord("error", message)
 
 async def google_search(query: str, api_key: str, cse_id: str, num_results: int = 10, start_index: int = 1):
     """使用 Google Custom Search API 搜尋圖片並回傳圖片 URL 列表。"""
@@ -130,7 +132,7 @@ app = Flask(__name__)
 def home():
     global connect_time
     if connect_time % 5 == 0:
-        asyncio.run(send_new_info_logging(f"Flask site connection No.{connect_time}"))
+        asyncio.run(send_new_info_logging(f"Flask site connection No.{connect_time}", to_discord=False))
     connect_time += 1
     return "Furina is now awake! :D"
 port = int(os.environ.get("PORT", 8080))
@@ -223,7 +225,7 @@ async def chat_sent_message_to_channel(original_message: dc.Message, message_to_
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    await send_new_info_logging(f"Bot successfully sent message at {get_hkt_time()}")
+    await send_new_info_logging(f"Furina has successfully sent message at {get_hkt_time()}")
 
 async def chat_process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
@@ -283,14 +285,14 @@ async def slash_help(interaction: dc.Interaction):
         operation_embed.add_field(name=command, value=description, inline=False)
 
     await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
-    await send_new_info_logging(f"Someone has asked for Furina's help at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /help at {get_hkt_time()}.")
 
 @bot.tree.command(name="status", description="確認芙寧娜是否在線 | Check if Furina is online.")
 async def slash_status(interaction: dc.Interaction):
     """確認芙寧娜是否在線"""
     """回傳: None"""
     await interaction.response.send_message("# :white_check_mark::droplet:", ephemeral=True)
-    await send_new_info_logging(f"Someone has checked Furina's status at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /status at {get_hkt_time()}")
 
 @bot.tree.command(name="randomnumber", description="抽一個區間內的數字 | Get a random number in a range.")
 @describe(min_value="隨機數字的最小值 (預設 1) | The minimum value for the random number (default 1).")
@@ -301,7 +303,7 @@ async def slash_random_number(interaction: dc.Interaction, min_value: int = 1, m
     arr = [random.randint(min_value, max_value) for _ in range(11+45+14)] # lol
     real_r = random.choice(arr)
     await interaction.response.send_message(f"# {real_r}", ephemeral=False)
-    await send_new_info_logging(f"Someone has asked for a random number at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /randomnumber at {get_hkt_time()}.")
 
 @bot.tree.command(name="randomcode", description="生成一個亂碼 | Get a random code.")
 @describe(length="亂碼的長度 (預設 8) | The length of the random code (default 8).")
@@ -309,7 +311,7 @@ async def slash_random_code(interaction: dc.Interaction, length: int = 8):
     """生成一個亂碼"""
     """回傳: None"""
     await interaction.response.send_message(f"# {generate_random_code(length)}", ephemeral=False)
-    await send_new_info_logging(f"Someone has asked for a random code at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /randomcode at {get_hkt_time()}")
 
 @bot.tree.command(name="createrole", description="創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)")
 @describe(role_name="身分組的名稱 | The name of the role.")
@@ -337,7 +339,7 @@ async def slash_create_role(interaction: dc.Interaction,
     role_color = dc.Color.from_rgb(r, g, b)
     role = await interaction.guild.create_role(name=role_name, colour=role_color, hoist=hoist, mentionable=mentionable)
     await interaction.response.send_message(f"# {role.mention}", ephemeral=False)
-    await send_new_info_logging(f"Someone has created a role at {get_hkt_time()} in his/her server.")
+    await send_new_info_logging(f"{interaction.user} has used /createrole at {get_hkt_time()}.")
 
 @bot.tree.command(name="deleterole", description="刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)")
 @describe(role="要刪除的身分組 | The role to be deleted.")
@@ -378,7 +380,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     
     await interaction.channel.purge(limit=number+1)
 
-    await send_new_info_logging(f"Someone deleted {number} messages in a channel at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /deletemessage with {number} messages deleted at {get_hkt_time()}.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
 async def slash_server_info(interaction: dc.Interaction):
@@ -411,7 +413,7 @@ async def slash_server_info(interaction: dc.Interaction):
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
 
     await interaction.response.send_message(embed=embed, ephemeral=False)
-    await send_new_info_logging(f"Someone has asked for server information at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /serverinfo to view server \"{server_name}\" at {get_hkt_time()}.")
 
 @bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片(每日搜尋額度有限請見諒) | Show a random photo of Furina.(Daily search limit exists)")
 async def slash_furina_photo(interaction: dc.Interaction):
@@ -419,13 +421,12 @@ async def slash_furina_photo(interaction: dc.Interaction):
     """回傳: None"""
     # Defer the interaction publicly. We will edit this message later.
     await interaction.response.defer(thinking=True)
+    await send_new_info_logging(f"{interaction.user} has used /furina_photo at {get_hkt_time()}.")
     try:
         search_query = "芙寧娜" # Define the search term
         # Generate a random start index from the possible pages (1, 11, 21, ..., 91)
         possible_start_indices = [1 + i * 10 for i in range(10)] # Generates [1, 11, 21, ..., 91]
         random_start_index = random.choice(possible_start_indices)
-        await send_new_info_logging(f"Searching Google Images for '{search_query}' starting from index {random_start_index}")
-
         # Perform a single search with the random start index
         image_urls = await google_search(search_query, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID, num_results=10, start_index=random_start_index)
 
@@ -438,8 +439,6 @@ async def slash_furina_photo(interaction: dc.Interaction):
         random_image_url = random.choice(image_urls)
         await send_new_info_logging("slash_furina_photo called, url returned: " + random_image_url)
         await interaction.edit_original_response(content=f"# 我可愛嗎:D | Am I cute?:D\n{random_image_url}")
-
-        await send_new_info_logging(f"Someone has searched a photo of Furina at {get_hkt_time()}")
 
     except Exception as e:
         # Log the error
@@ -476,11 +475,11 @@ async def text_mute(interaction: dc.Interaction, user: dc.Member, s: int, reason
     
 @bot.event
 async def on_ready():
-    logging.info(f"You are logged in as {bot.user}")
+    send_new_info_logging(f"Logged in as {bot.user}, system is ready.")
 
     try:
         synced = await bot.tree.sync()
-        await send_new_info_logging(f"Synced {len(synced)} commands")
+        await send_new_info_logging(f"Synced {len(synced)} commands.")
     except Exception as e:
         await send_new_error_logging(f"Error syncing commands: {e}")
 
@@ -493,7 +492,7 @@ async def on_message(message: dc.Message):
 async def main():
     try:
         await bot.start(DISCORD_BOT_API_KEY)
-        await send_new_info_logging(f"Bot successfully started at {get_hkt_time()}") 
+        await send_new_info_logging(f"Bot successfully started at {get_hkt_time()}.") 
     except dc.HTTPException as e:
         if e.status == 429:
             retry_after = e.response.headers.get("Retry-After")
