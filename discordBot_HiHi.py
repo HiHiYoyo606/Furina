@@ -198,7 +198,7 @@ async def chat_ask_question(question: dc.Message) -> str:
     PERSONA_PROMPT_CONCISENESS = "5. It's better not to say too much sentence in one message, you can wait the user provide more questions."
 
     user_name = question.author.name
-    await send_new_info_logging(f"{user_name} has sent a question at {get_hkt_time()}")
+    await send_new_info_logging(f"{user_name} has sent a question")
     full_history = await chat_fetch_full_history(question.channel)
     
     system_prompt = f"{PERSONA_PROMPT_BASE}{PERSONA_PROMPT_RELATIONSHIP}"
@@ -225,7 +225,7 @@ async def chat_sent_message_to_channel(original_message: dc.Message, message_to_
         await original_message.channel.send(chunk)
         await asyncio.sleep(3)
     
-    await send_new_info_logging(f"Furina has successfully sent message at {get_hkt_time()}")
+    await send_new_info_logging(f"Furina has successfully sent message")
 
 async def chat_process_message(message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
@@ -285,14 +285,14 @@ async def slash_help(interaction: dc.Interaction):
         operation_embed.add_field(name=command, value=description, inline=False)
 
     await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
-    await send_new_info_logging(f"{interaction.user} has used /help at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /help.")
 
 @bot.tree.command(name="status", description="確認芙寧娜是否在線 | Check if Furina is online.")
 async def slash_status(interaction: dc.Interaction):
     """確認芙寧娜是否在線"""
     """回傳: None"""
     await interaction.response.send_message("# :white_check_mark::droplet:", ephemeral=True)
-    await send_new_info_logging(f"{interaction.user} has used /status at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /status")
 
 @bot.tree.command(name="randomnumber", description="抽一個區間內的數字 | Get a random number in a range.")
 @describe(min_value="隨機數字的最小值 (預設 1) | The minimum value for the random number (default 1).")
@@ -303,7 +303,7 @@ async def slash_random_number(interaction: dc.Interaction, min_value: int = 1, m
     arr = [random.randint(min_value, max_value) for _ in range(11+45+14)] # lol
     real_r = random.choice(arr)
     await interaction.response.send_message(f"# {real_r}", ephemeral=False)
-    await send_new_info_logging(f"{interaction.user} has used /randomnumber at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /randomnumber.")
 
 @bot.tree.command(name="randomcode", description="生成一個亂碼 | Get a random code.")
 @describe(length="亂碼的長度 (預設 8) | The length of the random code (default 8).")
@@ -311,7 +311,7 @@ async def slash_random_code(interaction: dc.Interaction, length: int = 8):
     """生成一個亂碼"""
     """回傳: None"""
     await interaction.response.send_message(f"# {generate_random_code(length)}", ephemeral=False)
-    await send_new_info_logging(f"{interaction.user} has used /randomcode at {get_hkt_time()}")
+    await send_new_info_logging(f"{interaction.user} has used /randomcode")
 
 @bot.tree.command(name="createrole", description="創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)")
 @describe(role_name="身分組的名稱 | The name of the role.")
@@ -339,7 +339,7 @@ async def slash_create_role(interaction: dc.Interaction,
     role_color = dc.Color.from_rgb(r, g, b)
     role = await interaction.guild.create_role(name=role_name, colour=role_color, hoist=hoist, mentionable=mentionable)
     await interaction.response.send_message(f"# {role.mention}", ephemeral=False)
-    await send_new_info_logging(f"{interaction.user} has used /createrole at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /createrole.")
 
 @bot.tree.command(name="deleterole", description="刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)")
 @describe(role="要刪除的身分組 | The role to be deleted.")
@@ -380,7 +380,7 @@ async def slash_delete_message(interaction: dc.Interaction, number: int):
     
     await interaction.channel.purge(limit=number+1)
 
-    await send_new_info_logging(f"{interaction.user} has used /deletemessage with {number} messages deleted at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /deletemessage with {number} messages deleted.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
 async def slash_server_info(interaction: dc.Interaction):
@@ -413,7 +413,7 @@ async def slash_server_info(interaction: dc.Interaction):
     embed.set_footer(text=f"Powered by HiHiYoyo606.")
 
     await interaction.response.send_message(embed=embed, ephemeral=False)
-    await send_new_info_logging(f"{interaction.user} has used /serverinfo to view server \"{server_name}\" at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /serverinfo to view server \"{server_name}\".")
 
 @bot.tree.command(name="furinaphoto", description="顯示隨機一張芙寧娜的照片(每日搜尋額度有限請見諒) | Show a random photo of Furina.(Daily search limit exists)")
 async def slash_furina_photo(interaction: dc.Interaction):
@@ -421,7 +421,7 @@ async def slash_furina_photo(interaction: dc.Interaction):
     """回傳: None"""
     # Defer the interaction publicly. We will edit this message later.
     await interaction.response.defer(thinking=True)
-    await send_new_info_logging(f"{interaction.user} has used /furina_photo at {get_hkt_time()}.")
+    await send_new_info_logging(f"{interaction.user} has used /furina_photo.")
     try:
         search_query = "芙寧娜" # Define the search term
         # Generate a random start index from the possible pages (1, 11, 21, ..., 91)
@@ -470,7 +470,7 @@ async def text_mute(interaction: dc.Interaction, user: dc.Member, s: int, reason
     
     await user.timeout(datetime.now() + timedelta(seconds=s), reason=reason)
     await interaction.response.send_message(f"# 水神的懲罰!! {user} 被停權 {s} 秒!! 原因: {reason}")
-    send_new_info_logging(f"Someone is timed out at {get_hkt_time()}.")
+    send_new_info_logging(f"Someone is timed out.")
 """
     
 @bot.event
@@ -492,7 +492,7 @@ async def on_message(message: dc.Message):
 async def main():
     try:
         await bot.start(DISCORD_BOT_API_KEY)
-        await send_new_info_logging(f"Bot successfully started at {get_hkt_time()}.") 
+        await send_new_info_logging(f"Bot successfully started at {get_hkt_time()}.", to_discord=False) 
     except dc.HTTPException as e:
         if e.status == 429:
             retry_after = e.response.headers.get("Retry-After")
