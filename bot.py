@@ -38,6 +38,7 @@ bot, model = set_bot()
 async def slash_help(interaction: dc.Interaction):
     """顯示說明訊息"""
     """回傳: None"""
+    await interaction.response.defer(ephemeral=True)
     commands_embed = Embed(
         title="指令說明 | Help",
         color=dc.Color.blue(),
@@ -71,7 +72,7 @@ async def slash_help(interaction: dc.Interaction):
     for command, description in operation_list.items():
         operation_embed.add_field(name=command, value=description, inline=False)
 
-    await interaction.response.send_message(embeds=[commands_embed, operation_embed], ephemeral=True)
+    await interaction.followup.send(embeds=[commands_embed, operation_embed], ephemeral=True)
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /help.")
 
 """
