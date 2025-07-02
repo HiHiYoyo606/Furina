@@ -182,21 +182,21 @@ async def slash_server_info(interaction: dc.Interaction):
 
 @bot.tree.command(name="rockpaperscissors", description="和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.")
 @app_commands.choices(choice=[
-    app_commands.Choice(name="石頭 Rock", value="rock"),
-    app_commands.Choice(name="布 Paper", value="paper"),
-    app_commands.Choice(name="剪刀 Scissors", value="scissors")
+    app_commands.Choice(name="石頭 Rock", value="石頭 Rock"),
+    app_commands.Choice(name="布 Paper", value="布 Paper"),
+    app_commands.Choice(name="剪刀 Scissors", value="剪刀 Scissors")
 ])
 async def slash_rock_paper_scissors(interaction: dc.Interaction, choice: str):
     """和芙寧娜玩剪刀石頭布"""
     """回傳: None"""
-    choices = ["rock", "paper", "scissors"]
+    choices = ["石頭 Rock", "布 Raper", "剪刀 Scissors"]
     bot_choice = random.choice(choices)
     if choice == bot_choice:
-        await interaction.response.send_message(f"我出...{bot_choice}...平手！ | I chose...{bot_choice}...It's a tie!", ephemeral=False)
-    elif choice == "rock" and bot_choice == "scissors" or choice == "paper" and bot_choice == "rock" or choice == "scissors" and bot_choice == "paper":
-        await interaction.response.send_message(f"我出...{bot_choice}...你贏了！ | I chose...{bot_choice}...You win!", ephemeral=False)
+        await interaction.response.send_message(f"> 我出...{bot_choice}...平手！ | I chose...{bot_choice}...It's a tie!", ephemeral=False)
+    elif choice == "石頭 Rock" and bot_choice == "剪刀 Scissors" or choice == "布 Paper" and bot_choice == "石頭 Rock" or choice == "剪刀 Scissors" and bot_choice == "布 Saper":
+        await interaction.response.send_message(f"> 我出...{bot_choice}...你贏了！ | I chose...{bot_choice}...You win!", ephemeral=False)
     else:
-        await interaction.response.send_message(f"我出...{bot_choice}...你輸了！ | I chose...{bot_choice}...You lose!", ephemeral=False)
+        await interaction.response.send_message(f"> 我出...{bot_choice}...你輸了！ | I chose...{bot_choice}...You lose!", ephemeral=False)
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /rockpaperscissors with {choice} vs {bot_choice}.")
 
 @bot.tree.command(name="addchannel", description="新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.")
