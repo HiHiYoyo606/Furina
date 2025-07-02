@@ -5,7 +5,6 @@ import logging
 import asyncio  # 加入 asyncio 避免 race condition
 import random
 from discord import Embed, app_commands
-from discord.ui import View, Button
 from discord.app_commands import describe
 from dotenv import load_dotenv
 from flask import Flask
