@@ -204,6 +204,10 @@ async def slash_rock_paper_scissors(interaction: dc.Interaction, choice: str):
 async def slash_add_channel(interaction: dc.Interaction, channel_id: str):
     """新增一個和芙寧娜對話的頻道"""
     """回傳: None"""
+    if not channel_id.isdigit():
+        await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
+        return
+
     channel_list = get_all_channels_from_gs()
     if int(channel_id) not in channel_list:
         add_channel_to_gs(channel_id)
@@ -216,6 +220,9 @@ async def slash_add_channel(interaction: dc.Interaction, channel_id: str):
 @bot.tree.command(name="removechannel", description="從名單中刪除一個頻道 ID | Remove a channel ID from the list.")
 @dc.app_commands.describe(channel_id="要刪除的頻道 ID | The ID of the channel to remove.")
 async def slash_remove_channel(interaction: dc.Interaction, channel_id: str):
+    if not channel_id.isdigit():
+        await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
+        return
     try:
         all_channels = get_all_channels_from_gs()
         if int(channel_id) in all_channels:
