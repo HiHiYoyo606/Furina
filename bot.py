@@ -5,6 +5,7 @@ import logging
 import asyncio  # 加入 asyncio 避免 race condition
 import random
 from discord import Embed, app_commands
+from discord.ui import View, Button
 from discord.app_commands import describe
 from dotenv import load_dotenv
 from flask import Flask
@@ -38,41 +39,12 @@ bot, model = set_bot()
 async def slash_help(interaction: dc.Interaction):
     """顯示說明訊息"""
     """回傳: None"""
-    await interaction.response.defer(ephemeral=True)
-    commands_embed = Embed(
-        title="指令說明 | Help",
-        color=dc.Color.blue(),
-    )
-    commands_list = {
-        "/help": "顯示說明訊息 | Show the informations.",
-        "/randomnumber": "抽一個區間內的數字 | Random a number.",
-        "/randomcode": "生成一個亂碼 | Generate a random code.",
-        "/rockpaperscissors": "和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.",
-        "/serverinfo": "顯示伺服器資訊 | Show server information.",
-        "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
-        "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
-        "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
-        "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
-        "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
-    }
-    commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in commands_list.items():
-        commands_embed.add_field(name=command, value=description, inline=False)
-    
-    operation_embed = Embed(
-        title="操作說明 | Help",
-        color=dc.Color.blue(),
-    )
-    operation_list = {
-        "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
-        "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
-        "$ids": "查詢所有可用聊天室的ID | Check all the available chat room IDs.",
-    }
-    operation_embed.set_footer(text=f"Powered by HiHiYoyo606.")
-    for command, description in operation_list.items():
-        operation_embed.add_field(name=command, value=description, inline=False)
 
-    await interaction.followup.send(embeds=[commands_embed, operation_embed], ephemeral=True)
+    view = HelpView()
+    await interaction.response.send_message(
+        embed=view.pages[0], view=view, ephemeral=True
+    )
+
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /help.")
 
 """

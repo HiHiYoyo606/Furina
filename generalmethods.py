@@ -8,6 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
+from discord.ui import View, Button
 from discord import Embed
 from dotenv import load_dotenv
 
@@ -22,6 +23,60 @@ creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)
 spreadsheet=gs.open_by_key("1BufQ57OeV8Alc4IE5pm0G_20iwm4F_q5fKGik2Sl74I")
 ws=spreadsheet.worksheet("Furina")
+
+class HelpView(View):
+    def __init__(self):
+        super().__init__(timeout=120)
+
+        self.pages = self.generate_embeds()
+        self.current = 0
+
+        # 預設顯示第一頁
+        self.message = None
+
+    def generate_embeds(self):
+        embeds = []
+
+        # 📘 Page 1: 指令總覽
+        embed1 = dc.Embed(title="指令總覽 | Commands List", color=dc.Color.blue())
+        embed1.set_footer(text="Powered by HiHiYoyo606")
+        for cmd, desc in {
+            "/help": "顯示說明訊息 | Show the informations.",
+            "/randomnumber": "抽一個區間內的數字 | Random a number.",
+            "/randomcode": "生成一個亂碼 | Generate a random code.",
+            "/rockpaperscissors": "和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.",
+            "/serverinfo": "顯示伺服器資訊 | Show server information.",
+            "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
+            "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
+            "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
+            "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
+            "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
+        }.items():
+            embed1.add_field(name=cmd, value=desc, inline=False)
+        embeds.append(embed1)
+
+        # 🛠️ Page 2: 操作說明
+        embed2 = dc.Embed(title="操作說明 | Operations", color=dc.Color.blue())
+        embed2.set_footer(text="Powered by HiHiYoyo606")
+        for cmd, desc in {
+            "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
+            "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
+            "$ids": "查詢所有可用聊天室的ID | Check all the available chat room IDs.",
+        }.items():
+            embed2.add_field(name=cmd, value=desc, inline=False)
+        embeds.append(embed2)
+
+        return embeds
+
+    @dc.ui.button(label="上一頁", style=dc.ButtonStyle.gray)
+    async def previous(self, interaction: dc.Interaction, button: Button):
+        self.current = (self.current - 1) % len(self.pages)
+        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
+
+    @dc.ui.button(label="下一頁", style=dc.ButtonStyle.gray)
+    async def next(self, interaction: dc.Interaction, button: Button):
+        self.current = (self.current + 1) % len(self.pages)
+        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
 
 def generate_random_code(length: int):
     """
