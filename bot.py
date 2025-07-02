@@ -4,11 +4,11 @@ import threading
 import logging
 import asyncio  # 加入 asyncio 避免 race condition
 import random
-from generalmethods import *
 from discord import Embed, app_commands
 from discord.app_commands import describe
 from dotenv import load_dotenv
 from flask import Flask
+from generalmethods import *
 from geminichat import chat_process_message
 # from googlesearchmethods import GoogleSearchMethods
 
