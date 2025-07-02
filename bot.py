@@ -46,12 +46,13 @@ async def slash_help(interaction: dc.Interaction):
         "/help": "顯示說明訊息 | Show the informations.",
         "/randomnumber": "抽一個區間內的數字 | Random a number.",
         "/randomcode": "生成一個亂碼 | Generate a random code.",
+        "/rockpaperscissors": "和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.",
+        "/serverinfo": "顯示伺服器資訊 | Show server information.",
+        "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
+        "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
         "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
         "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
         "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
-        "/serverinfo": "顯示伺服器資訊 | Show server information.",
-        "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
-        "/removechannel": "從名單中刪除一個頻道",
     }
     commands_embed.set_footer(text=f"Powered by HiHiYoyo606.")
     for command, description in commands_list.items():
