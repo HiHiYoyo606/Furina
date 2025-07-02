@@ -68,12 +68,12 @@ class HelpView(View):
 
         return embeds
 
-    @dc.ui.button(label="上一頁", style=dc.ButtonStyle.gray)
+    @dc.ui.button(label="上一頁 Previous page", style=dc.ButtonStyle.gray)
     async def previous(self, interaction: dc.Interaction, button: Button):
         self.current = (self.current - 1) % len(self.pages)
         await interaction.response.edit_message(embed=self.pages[self.current], view=self)
 
-    @dc.ui.button(label="下一頁", style=dc.ButtonStyle.gray)
+    @dc.ui.button(label="下一頁 Next page", style=dc.ButtonStyle.gray)
     async def next(self, interaction: dc.Interaction, button: Button):
         self.current = (self.current + 1) % len(self.pages)
         await interaction.response.edit_message(embed=self.pages[self.current], view=self)
