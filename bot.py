@@ -475,46 +475,64 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
 @describe(query="關鍵字 | Keyword.")
 @describe(skip="是否插播 (預設 False) | Whether to interrupt current song (default False).")
 async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bool = False):
-    await interaction.response.defer(thinking=True)
+    # 🧸 優先保護 interaction 不失效
+    try:
+        await interaction.response.defer(thinking=True)
+    except dc.NotFound:
+        logging.warning(f"[{interaction.guild.name}] interaction 失效，無法 defer。")
+        return
+
+    # 🚪 環境檢查
     if isinstance(interaction.channel, dc.DMChannel):
         await interaction.followup.send("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
         return
-
     if interaction.user.voice is None:
         await interaction.followup.send("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
         return
 
+    # 🔊 語音連線管理
     voice_client = dc.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice_client and voice_client.channel != interaction.user.voice.channel:
         await voice_client.disconnect()
-
     if not interaction.guild.voice_client:
         await interaction.user.voice.channel.connect()
         if isinstance(interaction.user.voice.channel, dc.StageChannel):
-            # be speaker
             await interaction.user.voice.channel.guild.me.edit(suppress=False)
 
     voice_client = interaction.guild.voice_client
     await interaction.followup.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
 
+    # 🎵 非阻塞 yt-dlp 搜尋
     ydl_opts = {
         'format': 'ba/b',
         'default_search': 'ytsearch',
         'cookiefile': './cookies.txt',
     }
 
-    with ytdlp(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        if 'entries' in info:
-            info = info['entries'][0]
-        audio_url = info.get('url')
-        title = info.get('title', 'UNKNOWN SONG')
-        thumbnail = info.get("thumbnail")
-        duration = info.get("duration", 0)  # seconds
+    def yt_search():
+        with ytdlp(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            if 'entries' in info:
+                return info['entries'][0]
+            return info
+
+    try:
+        info = await asyncio.get_event_loop().run_in_executor(None, yt_search)
+    except Exception as e:
+        await interaction.followup.send("> 無法取得歌曲資訊，請稍後再試！ | Failed to retrieve song info.", ephemeral=True)
+        logging.error(f"[{interaction.guild.name}] yt-dlp error: {e}")
+        return
+
+    # 🎼 處理歌曲資訊
+    audio_url = info.get('url')
+    title = info.get('title', 'UNKNOWN SONG')
+    thumbnail = info.get("thumbnail")
+    duration = info.get("duration", 0)
 
     if skip and voice_client.is_playing():
-        voice_client.stop()  # trigger after callback to auto-play the inserted song
+        voice_client.stop()
 
+    # 📥 加入播放序列
     await all_server_queue[interaction.guild.id].put((audio_url, title, thumbnail, duration))
     await interaction.followup.send(content=f"> 已將 **{title}** 加入佇列！| Added **{title}** to queue!")
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /playyt with {title} added to his queue.")
