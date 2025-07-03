@@ -88,6 +88,7 @@ class MemberInfoView(dc.ui.View):
         super().__init__(timeout=120)
 
         self.current = 0
+        self.pages = None
 
         # 預設顯示第一頁
         self.message = None
@@ -116,6 +117,8 @@ class MemberInfoView(dc.ui.View):
         embed2 = get_general_embed(infomations_page2, dc.Color.blue(), "用戶資訊 | User Information", icon=icon, banner=banner)
         embeds.append(embed1)
         embeds.append(embed2)
+        self.pages_num = len(embeds)
+        self.pages = embeds
 
         return embeds
 
