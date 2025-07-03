@@ -4,6 +4,8 @@ import threading
 import logging
 import asyncio  # 加入 asyncio 避免 race condition
 import random
+from collections import defaultdict
+from yt_dlp import YoutubeDL as ytdlp
 from discord.app_commands import describe
 from dotenv import load_dotenv
 from flask import Flask
@@ -12,6 +14,7 @@ from geminichat import chat_process_message
 # from googlesearchmethods import GoogleSearchMethods
 
 connect_time = 0
+all_server_queue = defaultdict(asyncio.Queue)
 load_dotenv()
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
 
@@ -45,7 +48,7 @@ class HelpView(dc.ui.View):
 
     def generate_embeds(self):
         embeds = [ 
-            # 📘 Page 1: 一般指令
+            # 📘 Page 一般指令
             get_general_embed(message={
                 "/help": "顯示說明訊息 | Show the informations.",
                 "/randomnumber": "抽一個區間內的數字 | Random a number.",
@@ -55,16 +58,26 @@ class HelpView(dc.ui.View):
                 "/serverinfo": "顯示伺服器資訊 | Show server information.",
                 "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
                 "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
-            }, color=dc.Color.blue(), title="一般指令 | Normal Commands List"),
+            }, color=dc.Color.blue(), title="一般指令 | Normal Commands"),
 
-            # Page 2: 管理指令
+            # Page 語音指令
+            get_general_embed(message={
+                "/join": "加入語音頻道 | Join a voice channel.",
+                "/leave": "離開語音頻道 | Leave a voice channel.",
+                "/playyt": "播放一首Youtube歌曲 | Play a song with Youtube.",
+                "/skip": "跳過當前正在播放的歌曲 | Skip the current playing song.",
+                "/queue": "查詢目前序列 | Check the current queue.",
+                "/clear": "清空播放序列 | Clear the play queue.",
+            }, color=dc.Color.blue(), title="語音指令 | Voice Commands"),
+
+            # Page 管理指令
             get_general_embed(message={
                 "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
                 "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
                 "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
             }, color=dc.Color.blue(), title="管理指令 | Manage Commands"),
 
-            # 🛠️ Page 3: 操作說明
+            # 🛠️ Page 操作說明
             get_general_embed(message={
                 "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
                 "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
@@ -117,7 +130,6 @@ class MemberInfoView(dc.ui.View):
         embed2 = get_general_embed(infomations_page2, dc.Color.blue(), "用戶資訊 | User Information", icon=icon, banner=banner)
         embeds.append(embed1)
         embeds.append(embed2)
-        self.pages_num = len(embeds)
         self.pages = embeds
 
         return embeds
@@ -130,7 +142,7 @@ class MemberInfoView(dc.ui.View):
     @dc.ui.button(label="下一頁 Next page", style=dc.ButtonStyle.gray)
     async def next(self, interaction: dc.Interaction, button: dc.ui.Button):
         self.current = (self.current + 1) % len(self.pages)
-        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
+        await interaction.response.edit_message(embed=self.pages[self.current], view=self)    
 
 @bot.tree.command(name="help", description="顯示說明訊息 | Show the informations.")
 async def slash_help(interaction: dc.Interaction):
@@ -336,7 +348,202 @@ async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = No
         await interaction.response.send_message("> ⚠️尚未建立頻道資料，無法刪除", ephemeral=True)
 
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /removechannel with {channel_id} removed.")
+
+@bot.tree.command(name="join", description="加入語音頻道 | Join a voice channel.")
+async def slash_join(interaction: dc.Interaction):
+    # 加入語音頻道
+    # 回傳: None
+
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+
+    if interaction.user.voice is None:
+        await interaction.response.send_message("> 你得先進房間我才知道去哪裡！ | You need to be in a voice channel to use this command.", ephemeral=True)
+        return
+
+    voice_client = dc.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice_client and voice_client.channel != interaction.user.voice.channel:
+        await voice_client.disconnect()
+
+    await interaction.user.voice.channel.connect()
+    await interaction.response.send_message("> 我進來了~ | I joined the channel!")
+
+@bot.tree.command(name="leave", description="離開語音頻道 | Leave a voice channel.")
+async def slash_leave(interaction: dc.Interaction):
+    # 離開語音頻道
+    # 回傳: None
+
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
     
+    voice_client = dc.utils.get(bot.voice_clients, guild=interaction.guild)
+    if not voice_client:
+        await interaction.response.send_message("> 我目前不在語音頻道中 | I'm not connected to a voice channel.", ephemeral=True)
+        return 
+
+    if voice_client.is_playing():
+        await interaction.channel.purge(limit=1)
+
+    await voice_client.disconnect()
+    await interaction.response.send_message("> 我走了，再見~ | Bye~~", ephemeral=False)
+
+async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
+    if all_server_queue[guild.id].empty():
+        await command_channel.send("> 播完了，還要再加歌嗎 | Ended Playing, gonna add more?")
+        return
+    voice_client = guild.voice_client
+    if not voice_client:
+        return
+
+    audio_url, title, thumbnail, duration = await all_server_queue[guild.id].get()
+    await send_new_info_logging(bot=bot, message=f"Someone is listening music: {title}")
+
+    embed = get_general_embed(
+        message=f"**{title}**",
+        color=0x1DB954,
+        title="🎶正在播放 | Now Playing",
+    )
+    embed.set_thumbnail(url=thumbnail)
+    embed.add_field(name="⏳進度 Progress", value="🔘──────────", inline=False)
+    message = await command_channel.send(embed=embed)
+
+    def update_progress_bar(progress):
+        total_blocks = 10
+        filled = int(progress / duration * total_blocks)
+        bar = "■" * filled + "🔘" + "□" * (total_blocks - filled - 1)
+        return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
+
+    async def update_embed():
+        if not voice_client.is_playing():
+            await message.delete()
+            return
+
+        for i in range(0, duration, 5):
+            embed.set_field_at(0, name="⏳進度 Progress", value=update_progress_bar(i), inline=False)
+            await message.edit(embed=embed)
+            await asyncio.sleep(5)
+
+    ffmpeg_options = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+
+    voice_client.play(
+        dc.FFmpegPCMAudio(audio_url, **ffmpeg_options, executable="./ffmpeg.exe"),
+        after=lambda e: asyncio.run_coroutine_threadsafe(play_next(guild, command_channel), bot.loop)
+    )
+
+    # 執行進度條更新（不會擋住主線程）
+    bot.loop.create_task(update_embed())
+
+@bot.tree.command(name="playyt", description="播放一首Youtube歌曲(新歌較高概率會被擋)")
+@describe(query="關鍵字 | Keyword.")
+@describe(skip="是否插播 (預設 False) | Whether to interrupt current song (default False).")
+async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bool = False):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+
+    if interaction.user.voice is None:
+        await interaction.response.send_message("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
+        return
+
+    voice_client = dc.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice_client and voice_client.channel != interaction.user.voice.channel:
+        await voice_client.disconnect()
+
+    if not interaction.guild.voice_client:
+        await interaction.user.voice.channel.connect()
+
+    voice_client = interaction.guild.voice_client
+    await interaction.response.send_message("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
+
+    ydl_opts = {
+        'format': 'ba/b',
+        'default_search': 'ytsearch',
+        'cookiefile': './cookies.txt',
+    }
+
+    with ytdlp(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        if 'entries' in info:
+            info = info['entries'][0]
+        audio_url = info.get('url')
+        title = info.get('title', 'UNKNOWN SONG')
+        thumbnail = info.get("thumbnail")
+        duration = info.get("duration", 0)  # seconds
+
+    if skip and voice_client.is_playing():
+        voice_client.stop()  # trigger after callback to auto-play the inserted song
+
+    await all_server_queue[interaction.guild.id].put((audio_url, title, thumbnail, duration))
+    await interaction.edit_original_response(content=f"> 已將 **{title}** 加入佇列！| Added **{title}** to queue!")
+    await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /playyt with {title} added to his queue.")
+
+    if not voice_client.is_playing():
+        await play_next(interaction.guild, interaction.channel)
+
+@bot.tree.command(name="pause", description="暫停播放序列 | Pause the play queue.")
+async def slash_pause(interaction: dc.Interaction):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+    
+    voice_client = interaction.guild.voice_client
+    if voice_client.is_playing():
+        voice_client.pause()
+        await interaction.response.send_message("> 已暫停播放序列。| Paused the play queue.")
+
+@bot.tree.command(name="skip", description="跳過當前正在播放的歌曲 | Skip the current playing song.")
+async def slash_skip(interaction: dc.Interaction):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+
+    voice_client = interaction.guild.voice_client
+    if not voice_client or not voice_client.is_playing():
+        await interaction.response.send_message("> 目前沒有歌曲正在播放。| No song is currently playing.")
+        return
+
+    voice_client.stop()
+    await interaction.response.send_message("> 已跳過當前歌曲。| Skipped the current song.")
+    
+@bot.tree.command(name="queue", description="查詢目前序列 | Check the current queue.")
+async def slash_queue(interaction: dc.Interaction):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+
+    queue = all_server_queue[interaction.guild.id]
+    if queue.empty():
+        await interaction.response.send_message("> 播放序列是空的喔！| The queue is currently empty.")
+        return
+
+    items = list(queue)
+    titles = [f"{i+1}. {title}" for i, (_, title) in enumerate(items)]
+    message = "\n".join(titles)
+    await interaction.response.send_message(f"🎶 當前播放序列 | Current play queue:\n{message}")
+    
+@bot.tree.command(name="clear", description="清空播放序列 | Clear the play queue.")
+async def slash_clear(interaction: dc.Interaction):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+    
+    voice_client = interaction.guild.voice_client
+    if voice_client.is_playing():
+        await interaction.channel.purge(limit=1)
+
+    queue = all_server_queue[interaction.guild.id]
+    cleared = 0
+    while not queue.empty():
+        queue.get_nowait()
+        cleared += 1
+
+    await interaction.response.send_message(f"> 已清空播放序列，共移除 {cleared} 首歌曲。| Cleared queue ({cleared} songs removed).")
+
 @bot.event
 async def on_ready():
     await send_new_info_logging(bot=bot, message=f"Logged in as {bot.user}, system is ready.")
