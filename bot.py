@@ -367,6 +367,9 @@ async def slash_join(interaction: dc.Interaction):
         await voice_client.disconnect()
 
     await interaction.user.voice.channel.connect()
+    if isinstance(interaction.user.voice.channel, dc.StageChannel):
+        # be speaker
+        await interaction.user.voice.channel.guild.me.edit(suppress=False)
     await interaction.response.send_message("> 我進來了~ | I joined the channel!")
 
 @bot.tree.command(name="leave", description="離開語音頻道 | Leave a voice channel.")
@@ -390,24 +393,33 @@ async def slash_leave(interaction: dc.Interaction):
     await interaction.response.send_message("> 我走了，再見~ | Bye~~", ephemeral=False)
 
 async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
-    if all_server_queue[guild.id].empty():
-        await command_channel.send("> 播完了，還要再加歌嗎 | Ended Playing, gonna add more?")
-        return
+    queue = all_server_queue[guild.id]
     voice_client = guild.voice_client
-    if not voice_client:
+
+    # 檢查 queue 和語音連線是否存在
+    if queue.empty() or not voice_client or not voice_client.is_connected():
+        if command_channel:
+            await command_channel.send("> 播放結束啦，要不要再加首歌？| Ended Playing, wanna queue more?")
         return
 
-    audio_url, title, thumbnail, duration = await all_server_queue[guild.id].get()
+    # 取得下一首歌曲資訊
+    audio_url, title, thumbnail, duration = await queue.get()
     await send_new_info_logging(bot=bot, message=f"Someone is listening music: {title}")
 
+    # 建立播放 embed
     embed = get_general_embed(
         message=f"**{title}**",
         color=0x1DB954,
-        title="🎶正在播放 | Now Playing",
+        title="🎶 正在播放 | Now Playing",
     )
     embed.set_thumbnail(url=thumbnail)
     embed.add_field(name="⏳進度 Progress", value="🔘──────────", inline=False)
-    message = await command_channel.send(embed=embed)
+
+    try:
+        message = await command_channel.send(embed=embed)
+    except Exception as e:
+        logging.warning(f"[{guild.name}] 無法送出播放 embed：{e}")
+        return
 
     def update_progress_bar(progress):
         total_blocks = 10
@@ -416,13 +428,18 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
         return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
 
     async def update_embed():
-        if not voice_client.is_playing():
-            await message.delete()
-            return
-
         for i in range(0, duration, 5):
-            embed.set_field_at(0, name="⏳進度 Progress", value=update_progress_bar(i), inline=False)
-            await message.edit(embed=embed)
+            if not voice_client.is_connected() or not voice_client.is_playing():
+                break
+            try:
+                embed.set_field_at(0, name="⏳進度 Progress", value=update_progress_bar(i), inline=False)
+                await message.edit(embed=embed)
+            except dc.NotFound:
+                logging.warning(f"[{guild.name}] 播放訊息已消失，無法更新進度。")
+                break
+            except Exception as e:
+                logging.error(f"[{guild.name}] 更新 embed 失敗：{e}")
+                break
             await asyncio.sleep(5)
 
     ffmpeg_options = {
@@ -430,24 +447,41 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
         'options': '-vn'
     }
 
-    voice_client.play(
-        dc.FFmpegPCMAudio(audio_url, **ffmpeg_options, executable="./ffmpeg.exe"),
-        after=lambda e: asyncio.run_coroutine_threadsafe(play_next(guild, command_channel), bot.loop)
-    )
+    def safe_callback(e):
+        try:
+            asyncio.run_coroutine_threadsafe(
+                play_next(guild, command_channel),
+                bot.loop
+            )
+        except Exception as err:
+            logging.error(f"[{guild.name}] after callback 錯誤：{err}")
 
-    # 執行進度條更新（不會擋住主線程）
+    def play_music():
+        try:
+            voice_client.play(
+                dc.FFmpegPCMAudio(audio_url, **ffmpeg_options, executable="./ffmpeg.exe"),
+                after=safe_callback
+            )
+        except Exception as e:
+            logging.error(f"[{guild.name}] ffmpeg 播放錯誤：{e}")
+
+    # 播放 ffmpeg（非同步執行）
+    await asyncio.get_event_loop().run_in_executor(None, play_music)
+
+    # 開始進度更新（非阻塞）
     bot.loop.create_task(update_embed())
 
 @bot.tree.command(name="playyt", description="播放一首Youtube歌曲(新歌較高概率會被擋)")
 @describe(query="關鍵字 | Keyword.")
 @describe(skip="是否插播 (預設 False) | Whether to interrupt current song (default False).")
 async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bool = False):
+    await interaction.response.defer(thinking=True)
     if isinstance(interaction.channel, dc.DMChannel):
-        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        await interaction.followup.send("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
         return
 
     if interaction.user.voice is None:
-        await interaction.response.send_message("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
+        await interaction.followup.send("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
         return
 
     voice_client = dc.utils.get(bot.voice_clients, guild=interaction.guild)
@@ -456,44 +490,33 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
 
     if not interaction.guild.voice_client:
         await interaction.user.voice.channel.connect()
+        if isinstance(interaction.user.voice.channel, dc.StageChannel):
+            # be speaker
+            await interaction.user.voice.channel.guild.me.edit(suppress=False)
 
     voice_client = interaction.guild.voice_client
-    await interaction.response.send_message("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
+    await interaction.followup.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
 
     ydl_opts = {
         'format': 'ba/b',
-        'default_search': 'ytsearch5',
+        'default_search': 'ytsearch',
         'cookiefile': './cookies.txt',
-        'noplaylist': True,  # 只取單首，避免誤抓整個播放清單
-        'quiet': True,
-        'no_warnings': True,
-        'source_address': '0.0.0.0',  # 嘗試強制本機 IP
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
     }
 
-    def extract():
-        with ytdlp(ydl_opts) as ydl:
-            info = ydl.extract_info(query, download=False)
-            if 'entries' in info:
-                info = info['entries'][0]
-        return info
-    
-    loop = asyncio.get_event_loop()
-    info = await loop.run_in_executor(None, extract)
-    
-    audio_url = info.get('url')
-    title = info.get('title', 'UNKNOWN SONG')
-    thumbnail = info.get("thumbnail")
-    duration = info.get("duration", 0)  # seconds
+    with ytdlp(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        if 'entries' in info:
+            info = info['entries'][0]
+        audio_url = info.get('url')
+        title = info.get('title', 'UNKNOWN SONG')
+        thumbnail = info.get("thumbnail")
+        duration = info.get("duration", 0)  # seconds
 
     if skip and voice_client.is_playing():
         voice_client.stop()  # trigger after callback to auto-play the inserted song
 
     await all_server_queue[interaction.guild.id].put((audio_url, title, thumbnail, duration))
-    await interaction.edit_original_response(content=f"> 已將 **{title}** 加入佇列！| Added **{title}** to queue!")
+    await interaction.followup.send(content=f"> 已將 **{title}** 加入佇列！| Added **{title}** to queue!")
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /playyt with {title} added to his queue.")
 
     if not voice_client.is_playing():
