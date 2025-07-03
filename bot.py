@@ -484,10 +484,10 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
 
     # 🚪 環境檢查
     if isinstance(interaction.channel, dc.DMChannel):
-        await interaction.channel.send("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        await interaction.followup.send("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
         return
     if interaction.user.voice is None:
-        await interaction.channel.send("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
+        await interaction.followup.send("> 我不知道我要在哪裡放音樂... | I don't know where to put the music...")
         return
 
     # 🔊 語音連線管理
@@ -500,7 +500,7 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
             await interaction.user.voice.channel.guild.me.edit(suppress=False)
 
     voice_client = interaction.guild.voice_client
-    await interaction.channel.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
+    await interaction.followup.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
 
     # 🎵 非阻塞 yt-dlp 搜尋
     ydl_opts = {
@@ -519,7 +519,7 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
     try:
         info = await asyncio.get_event_loop().run_in_executor(None, yt_search)
     except Exception as e:
-        await interaction.followup.send("> 無法取得歌曲資訊，請稍後再試！ | Failed to retrieve song info.", ephemeral=True)
+        await interaction.channel.send("> 無法取得歌曲資訊，請稍後再試！ | Failed to retrieve song info.", ephemeral=True)
         logging.error(f"[{interaction.guild.name}] yt-dlp error: {e}")
         return
 
