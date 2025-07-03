@@ -462,18 +462,32 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
 
     ydl_opts = {
         'format': 'ba/b',
-        'default_search': 'ytsearch',
+        'default_search': 'ytsearch5',
         'cookiefile': './cookies.txt',
+        'noplaylist': True,  # 只取單首，避免誤抓整個播放清單
+        'quiet': True,
+        'no_warnings': True,
+        'source_address': '0.0.0.0',  # 嘗試強制本機 IP
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
     }
 
-    with ytdlp(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        if 'entries' in info:
-            info = info['entries'][0]
-        audio_url = info.get('url')
-        title = info.get('title', 'UNKNOWN SONG')
-        thumbnail = info.get("thumbnail")
-        duration = info.get("duration", 0)  # seconds
+    def extract():
+        with ytdlp(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            if 'entries' in info:
+                info = info['entries'][0]
+        return info
+    
+    loop = asyncio.get_event_loop()
+    info = await loop.run_in_executor(None, extract)
+    
+    audio_url = info.get('url')
+    title = info.get('title', 'UNKNOWN SONG')
+    thumbnail = info.get("thumbnail")
+    duration = info.get("duration", 0)  # seconds
 
     if skip and voice_client.is_playing():
         voice_client.stop()  # trigger after callback to auto-play the inserted song
