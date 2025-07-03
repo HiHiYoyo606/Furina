@@ -5,10 +5,11 @@ import google.generativeai as genai
 import os
 import logging
 import gspread
+import csv
+import requests
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
-from discord.ui import View, Button
 from discord import Embed
 from dotenv import load_dotenv
 
@@ -16,67 +17,20 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
 LOGGING_CHANNEL_ID = int(os.getenv("LOGGING_CHANNEL_ID")) # Log sending channel
-GEMINI_VERSION = "gemini-2.0-flash"
+SHEET_ID = os.getenv("SHEET_ID")
+WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
+GEMINI_VERSION = os.getenv("GEMINI_VERSION")
+GOOGLE_SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")
+
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+with open("version.txt", "r") as f:
+    VERSION = f.read().strip()
 
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)
-spreadsheet=gs.open_by_key("1BufQ57OeV8Alc4IE5pm0G_20iwm4F_q5fKGik2Sl74I")
+spreadsheet=gs.open_by_key(SHEET_ID)
 ws=spreadsheet.worksheet("Furina")
-
-class HelpView(View):
-    def __init__(self):
-        super().__init__(timeout=120)
-
-        self.pages = self.generate_embeds()
-        self.current = 0
-
-        # 預設顯示第一頁
-        self.message = None
-
-    def generate_embeds(self):
-        embeds = []
-
-        # 📘 Page 1: 指令總覽
-        embed1 = dc.Embed(title="指令總覽 | Commands List", color=dc.Color.blue())
-        embed1.set_footer(text="Powered by HiHiYoyo606")
-        for cmd, desc in {
-            "/help": "顯示說明訊息 | Show the informations.",
-            "/randomnumber": "抽一個區間內的數字 | Random a number.",
-            "/randomcode": "生成一個亂碼 | Generate a random code.",
-            "/rockpaperscissors": "和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.",
-            "/serverinfo": "顯示伺服器資訊 | Show server information.",
-            "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
-            "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
-            "/createrole": "創建一個身分組(需擁有管理身分組權限) | Create a role.(Requires manage roles permission)",
-            "/deleterole": "刪除一個身分組(需擁有管理身分組權限) | Delete a role.(Requires manage roles permission)",
-            "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
-        }.items():
-            embed1.add_field(name=cmd, value=desc, inline=False)
-        embeds.append(embed1)
-
-        # 🛠️ Page 2: 操作說明
-        embed2 = dc.Embed(title="操作說明 | Operations", color=dc.Color.blue())
-        embed2.set_footer(text="Powered by HiHiYoyo606")
-        for cmd, desc in {
-            "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
-            "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
-            "$ids": "查詢所有可用聊天室的ID | Check all the available chat room IDs.",
-        }.items():
-            embed2.add_field(name=cmd, value=desc, inline=False)
-        embeds.append(embed2)
-
-        return embeds
-
-    @dc.ui.button(label="上一頁 Previous page", style=dc.ButtonStyle.gray)
-    async def previous(self, interaction: dc.Interaction, button: Button):
-        self.current = (self.current - 1) % len(self.pages)
-        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
-
-    @dc.ui.button(label="下一頁 Next page", style=dc.ButtonStyle.gray)
-    async def next(self, interaction: dc.Interaction, button: Button):
-        self.current = (self.current + 1) % len(self.pages)
-        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
 
 def generate_random_code(length: int):
     """
@@ -113,11 +67,9 @@ async def _send_log_to_discord(bot: commands.Bot, level: str, message: str) -> N
         message,
         f"{now_time}",
     ]
-    embed = Embed(
-        colour=[dc.Color.blue() if level == "info" else dc.Color.red()][0],
-        title=f"System Log - {level.upper()}",
-        description="\n".join(embed_parts),
-    )
+    embed = get_general_embed(message="\n".join(embed_parts), 
+                              color=[dc.Color.blue() if level == "info" else dc.Color.red()][0],
+                              title=f"System Log - {level.upper()}")
     
     try:
         log_channel = bot.get_channel(LOGGING_CHANNEL_ID)
@@ -149,21 +101,62 @@ def set_bot():
     return bot, model
 
 def add_channel_to_gs(channel_id: str):
-    ws.append_row([channel_id, "1"])
+    ws.append_row([channel_id])
 
 def remove_channel_from_gs(channel_id: str):
-    records = ws.get_all_records()
-    new_records = []
-    for r in records:
-        if r["channel_id"] == channel_id:
-            r["active"] = "0"
-        new_records.append(r)
-    ws.clear()
-    ws.extend(new_records)
+    rows = ws.get_all_values()
+    header = rows[0]
+    data = rows[1:]
 
-def get_all_channels_from_gs():
-    records = ws.get_all_records()
-    return [
-        int(r["channel_id"]) for r in records
-        if str(r.get("active", "1")) == "1"
+    new_data = [
+        row for row in data if row[0] != channel_id
     ]
+
+    ws.clear()
+    ws.append_row(header)
+    ws.append_rows(new_data)
+
+def get_all_channels_from_gs() -> list[int]:
+    file = requests.get(GOOGLE_SHEET_CSV_URL)
+    csv_content = file.content.decode("utf-8").splitlines()
+    
+    all_channels = []
+
+    reader = csv.DictReader(csv_content)
+    for row in reader:
+        try:
+            channel_id = int(row.get("channel_id", "").strip())
+            all_channels.append(channel_id)
+        except (ValueError, TypeError):
+            continue  # 忽略轉換失敗或空值
+
+    return all_channels
+
+
+def get_general_embed(message: str | dict, 
+                      color: dc.Color = dc.Color.blue(), 
+                      title: str = None, 
+                      icon : str = None, 
+                      banner: str = None) -> Embed:
+    
+    embed = Embed(
+        title=title,
+        description=message if isinstance(message, str) else None,
+        color=color,
+    )
+    
+    if isinstance(message, dict):
+        for key, value in message.items():
+            embed.add_field(name=key, value=value, inline=False)
+    
+    if icon:
+        embed.set_thumbnail(url=icon)
+    if banner:
+        embed.set_image(url=banner)
+    
+    embed.set_footer(text=f"Powered by HiHiYoyo606 | Version: {VERSION}")
+    return embed
+
+if __name__ == "__main__":
+    print(get_all_channels_from_gs())
+    pass
