@@ -500,7 +500,7 @@ async def slash_play_a_yt_song(interaction: dc.Interaction, query: str, skip: bo
     ydl_opts = {
         'format': 'ba/b',
         'default_search': 'ytsearch',
-        # 'cookiefile': './cookies.txt',
+        'cookiefile': './cookies.txt',
     }
 
     with ytdlp(ydl_opts) as ydl:
