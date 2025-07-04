@@ -544,10 +544,6 @@ async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, mess
 
         try:
             embed = message.embeds[0]
-            if i + 5 >= duration:
-                embed.set_field_at(1, name="⏳進度 | Progress", value=make_bar(duration), inline=False)
-                await message.edit(embed=embed)
-                break
             embed.set_field_at(1, name="⏳進度 | Progress", value=make_bar(i), inline=False)
             await message.edit(embed=embed)
         except dc.NotFound:
@@ -586,15 +582,31 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
     def safe_callback_factory(view: MusicInfoView):
         def inner_callback(error):
             if view and view.message:
+                def make_end_bar(duration):
+                    total_blocks = 15
+                    filled = min(total_blocks, total_blocks - 1)
+                    bar = "■" * filled + "🔘" + "□" * (total_blocks - filled - 1)
+                    return f"{bar}  `{duration // 60}m{duration % 60}s / {duration // 60}m{duration % 60}s`"
+                
+                try:
+                    embed = view.message.embeds[0]
+                    embed.set_field_at(
+                        1,
+                        name="⏳進度 | Progress",
+                        value=make_end_bar(view.duration),
+                        inline=False
+                    )
+                    asyncio.run_coroutine_threadsafe(
+                        view.message.edit(embed=embed),
+                        bot.loop
+                    )
+                except Exception as e:
+                    logging.warning(f"[{guild.name}] 強制更新進度條失敗：{e}")
+
                 asyncio.run_coroutine_threadsafe(
-                    update_music_embed(guild, voice_client, view.message, view.duration),
+                    play_next(guild, command_channel),
                     bot.loop
                 )
-
-        asyncio.run_coroutine_threadsafe(
-            play_next(guild, command_channel),
-            bot.loop
-        )
         return inner_callback
 
     def play_music():
