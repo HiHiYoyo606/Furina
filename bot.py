@@ -585,20 +585,16 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
             
     def safe_callback_factory(view: MusicInfoView):
         def inner_callback(error):
-            view: MusicInfoView = all_server_queue[guild.id]._queue[0]
-            message = view.message
-            duration = view.duration
-            asyncio.run_coroutine_threadsafe(update_music_embed(guild, voice_client, message, duration), bot.loop)
-            
             if view and view.message:
                 asyncio.run_coroutine_threadsafe(
                     update_music_embed(guild, voice_client, view.message, view.duration),
                     bot.loop
                 )
-            asyncio.run_coroutine_threadsafe(
-                play_next(guild, command_channel),
-                bot.loop
-            )
+
+        asyncio.run_coroutine_threadsafe(
+            play_next(guild, command_channel),
+            bot.loop
+        )
         return inner_callback
 
     def play_music():
