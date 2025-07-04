@@ -15,7 +15,6 @@ from geminichat import chat_process_message
 
 connect_time = 0
 playback_status = {}      # 用來追蹤每個伺服器目前播放狀態（"playing", "paused" 等）
-current_playing_view = {}  # 當前歌曲播放資訊 (dict: )
 all_server_queue = defaultdict(asyncio.Queue) # MusicInfoView
 load_dotenv()
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
@@ -255,7 +254,6 @@ class MusicInfoView(dc.ui.View):
             await interaction.response.send_message("> 播放序列是空的喔 | The queue is currently empty.", ephemeral=True)
             return
 
-        current_playing_view.pop(interaction.guild.id, None)
         cleared = 0
         while not queue.empty():
             queue.get_nowait()
@@ -545,9 +543,7 @@ async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, mess
             continue
 
         try:
-            uploader = current_playing_view.get(guild.id, {}).uploader
             embed = message.embeds[0]
-            embed.set_field_at(0, name="上傳者 | Uploader", value=uploader, inline=False)
             if i + 5 >= duration:
                 embed.set_field_at(1, name="⏳進度 | Progress", value=make_bar(duration), inline=False)
                 await message.edit(embed=embed)
@@ -586,27 +582,30 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn'
     }
-
-    def safe_callback(e):
-        try:
-            # update progressbar to 100%
-            last_message = current_playing_view.get(guild.id).message
-            if last_message and "message" in last_message:
-                message = last_message["message"]
-                duration = last_message["duration"]
-                asyncio.run_coroutine_threadsafe(update_music_embed(guild, voice_client, message, duration), bot.loop)
+            
+    def safe_callback_factory(view: MusicInfoView):
+        def inner_callback(error):
+            view: MusicInfoView = all_server_queue[guild.id]._queue[0]
+            message = view.message
+            duration = view.duration
+            asyncio.run_coroutine_threadsafe(update_music_embed(guild, voice_client, message, duration), bot.loop)
+            
+            if view and view.message:
+                asyncio.run_coroutine_threadsafe(
+                    update_music_embed(guild, voice_client, view.message, view.duration),
+                    bot.loop
+                )
             asyncio.run_coroutine_threadsafe(
                 play_next(guild, command_channel),
                 bot.loop
             )
-        except Exception as err:
-            logging.error(f"[{guild.name}] after callback 錯誤：{err}")
+        return inner_callback
 
     def play_music():
         try:
             voice_client.play(
                 dc.FFmpegPCMAudio(audio_url, **ffmpeg_options, executable="./ffmpeg.exe"),
-                after=safe_callback
+                after=safe_callback_factory(view)
             )
         except Exception as e:
             logging.error(f"[{guild.name}] ffmpeg 播放錯誤：{e}")
@@ -686,7 +685,6 @@ async def slash_playyt(interaction: dc.Interaction, query: str, skip: bool = Fal
                              url=audio_url)
         message = await interaction.channel.send(embed=view.embed, view=view)
         view.message = message
-        current_playing_view[guild_id] = view
         await all_server_queue[guild_id].put(view)
         playback_status[guild_id] = "playing"
     except Exception as e:
