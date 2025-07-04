@@ -14,6 +14,8 @@ from geminichat import chat_process_message
 # from googlesearchmethods import GoogleSearchMethods
 
 connect_time = 0
+playback_status = {}      # 用來追蹤每個伺服器目前播放狀態（"playing", "paused" 等）
+current_playing_info = {}  # 每個 guild 的歌曲資訊
 all_server_queue = defaultdict(asyncio.Queue)
 load_dotenv()
 DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
@@ -66,6 +68,8 @@ class HelpView(dc.ui.View):
                 "/leave": "離開語音頻道 | Leave a voice channel.",
                 "/playyt": "播放一首Youtube歌曲 | Play a song with Youtube.",
                 "/skip": "跳過當前正在播放的歌曲 | Skip the current playing song.",
+                "/pause": "暫停播放序列 | Pause the play queue.",
+                "/resume": "恢復播放序列 | Resume the play queue.",
                 "/queue": "查詢目前序列 | Check the current queue.",
                 "/clear": "清空播放序列 | Clear the play queue.",
             }, color=dc.Color.blue(), title="語音指令 | Voice Commands"),
@@ -109,12 +113,14 @@ class MemberInfoView(dc.ui.View):
 
     async def generate_embeds(self, user: dc.Member):
         embeds = []
-
+        gmt8 = datetime.now(tz=timezone(timedelta(hours=8)))
         infomations_page1 = {
+            "伺服器暱稱 | Nickname": user.display_name, 
             "用戶名稱 | User Name": user.name,
             "用戶ID | User ID": user.id,
             "加入日期 | Joined At": user.joined_at.strftime("%Y-%m-%d"),
-            "創建日期 | Created At": user.created_at.strftime("%Y-%m-%d"),
+            "加入天數 | Duration": str((gmt8 - user.joined_at).days),
+            "帳號創建日期 | Created At": user.created_at.strftime("%Y-%m-%d"),
             "最高身分組 | Highest Role": user.top_role.mention if user.top_role != user.guild.default_role else None,
         }
         roles = [role.mention for role in user.roles if role != user.guild.default_role]
@@ -392,6 +398,32 @@ async def slash_leave(interaction: dc.Interaction):
     await voice_client.disconnect()
     await interaction.response.send_message("> 我走了，再見~ | Bye~~", ephemeral=False)
 
+async def update_embed(guild: dc.Guild, voice_client: dc.VoiceClient, message: dc.Message, duration: int):
+    def make_bar(progress):
+        total_blocks = 10
+        filled = int(progress / duration * total_blocks)
+        bar = "■" * filled + "🔘" + "□" * (total_blocks - filled - 1)
+        return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
+
+    for i in range(0, duration, 5):
+        if not voice_client.is_connected() or not voice_client.is_playing():
+            playback_status[guild.id] = "paused"
+            break
+        if playback_status.get(guild.id) == "paused":
+            await asyncio.sleep(5)
+            continue
+        try:
+            embed = message.embeds[0]
+            embed.set_field_at(0, name="⏳進度 Progress", value=make_bar(i), inline=False)
+            await message.edit(embed=embed)
+        except dc.NotFound:
+            logging.warning(f"[{guild.name}] 播放訊息已消失，無法更新進度。")
+            break
+        except Exception as e:
+            logging.error(f"[{guild.name}] 更新 embed 失敗：{e}")
+            break
+        await asyncio.sleep(5)
+
 async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
     queue = all_server_queue[guild.id]
     voice_client = guild.voice_client
@@ -417,30 +449,17 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
 
     try:
         message = await command_channel.send(embed=embed)
+        current_playing_info[guild.id] = {
+            "title": title,
+            "url": audio_url,
+            "thumbnail": thumbnail,
+            "duration": duration,
+            "message": message
+        }
+        playback_status[guild.id] = "playing"
     except Exception as e:
         logging.warning(f"[{guild.name}] 無法送出播放 embed：{e}")
         return
-
-    def update_progress_bar(progress):
-        total_blocks = 10
-        filled = int(progress / duration * total_blocks)
-        bar = "■" * filled + "🔘" + "□" * (total_blocks - filled - 1)
-        return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
-
-    async def update_embed():
-        for i in range(0, duration, 5):
-            if not voice_client.is_connected() or not voice_client.is_playing():
-                break
-            try:
-                embed.set_field_at(0, name="⏳進度 Progress", value=update_progress_bar(i), inline=False)
-                await message.edit(embed=embed)
-            except dc.NotFound:
-                logging.warning(f"[{guild.name}] 播放訊息已消失，無法更新進度。")
-                break
-            except Exception as e:
-                logging.error(f"[{guild.name}] 更新 embed 失敗：{e}")
-                break
-            await asyncio.sleep(5)
 
     ffmpeg_options = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -468,8 +487,8 @@ async def play_next(guild: dc.Guild, command_channel: dc.TextChannel = None):
     # 播放 ffmpeg（非同步執行）
     await asyncio.get_event_loop().run_in_executor(None, play_music)
 
-    # 開始進度更新（非阻塞）
-    bot.loop.create_task(update_embed())
+    # 開始進度更新（非阻塞
+    bot.loop.create_task(update_embed(guild, voice_client, message, duration))
 
 @bot.tree.command(name="playyt", description="播放一首Youtube歌曲(新歌較高概率會被擋)")
 @describe(query="關鍵字 | Keyword.")
@@ -549,7 +568,37 @@ async def slash_pause(interaction: dc.Interaction):
     voice_client = interaction.guild.voice_client
     if voice_client.is_playing():
         voice_client.pause()
+        playback_status[interaction.guild.id] = "paused"
         await interaction.response.send_message("> 已暫停播放序列。| Paused the play queue.")
+
+@bot.tree.command(name="resume", description="恢復播放序列 | Resume the play queue.")
+async def slash_resume(interaction: dc.Interaction):
+    if isinstance(interaction.channel, dc.DMChannel):
+        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
+        return
+    
+    voice_client = interaction.guild.voice_client
+    if not voice_client or not voice_client.is_connected():
+        await interaction.response.send_message("> 我目前不在語音頻道中喔 | I'm not connected to any voice channel.", ephemeral=True)
+        return
+
+    if voice_client.is_playing():
+        await interaction.response.send_message("> 音樂正在播放中，不需要恢復。| Already playing!")
+        return
+    
+    try:
+        voice_client.resume()
+        playback_status[interaction.guild.id] = "playing"
+
+        # 重新啟動進度更新 coroutine（如果訊息還在）
+        info = current_playing_info.get(interaction.guild.id)
+        if info and "message" in info and "duration" in info:
+            message = info["message"]
+            duration = info["duration"]
+            bot.loop.create_task(update_embed(interaction.guild, voice_client, message, duration))
+        await interaction.response.send_message("> 音樂已恢復播放 🎶 | Playback resumed.")
+    except Exception as e:
+        ...
 
 @bot.tree.command(name="skip", description="跳過當前正在播放的歌曲 | Skip the current playing song.")
 async def slash_skip(interaction: dc.Interaction):
@@ -576,8 +625,8 @@ async def slash_queue(interaction: dc.Interaction):
         await interaction.response.send_message("> 播放序列是空的喔！| The queue is currently empty.")
         return
 
-    items = list(queue)
-    titles = [f"{i+1}. {title}" for i, (_, title) in enumerate(items)]
+    items = list(queue._queue)
+    titles = [f"{i+1}. {title}" for i, (_, title, _, _) in enumerate(items)]
     message = "\n".join(titles)
     await interaction.response.send_message(f"🎶 當前播放序列 | Current play queue:\n{message}")
     
@@ -588,10 +637,12 @@ async def slash_clear(interaction: dc.Interaction):
         return
     
     voice_client = interaction.guild.voice_client
-    if voice_client.is_playing():
+    if voice_client and voice_client.is_playing():
         await interaction.channel.purge(limit=1)
 
     queue = all_server_queue[interaction.guild.id]
+    current_playing_info.pop(interaction.guild.id, None)
+    playback_status.pop(interaction.guild.id, None)
     cleared = 0
     while not queue.empty():
         queue.get_nowait()
