@@ -1,36 +1,18 @@
 import string
 import random
 import discord as dc
-import google.generativeai as genai
-import os
 import logging
-import gspread
 import csv
 import requests
-from google.oauth2.service_account import Credentials
+from objects import all_server_queue, ws, LOGGING_CHANNEL_ID, VERSION, GOOGLE_SHEET_CSV_URL
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
 from discord import Embed
-from dotenv import load_dotenv
 
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-DISCORD_BOT_API_KEY = os.getenv("DISCORD_BOT_API_KEY")
-LOGGING_CHANNEL_ID = int(os.getenv("LOGGING_CHANNEL_ID")) # Log sending channel
-SHEET_ID = os.getenv("SHEET_ID")
-WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
-GEMINI_VERSION = os.getenv("GEMINI_VERSION")
-GOOGLE_SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")
-
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-
-with open("version.txt", "r") as f:
-    VERSION = f.read().strip()
-
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
-gs=gspread.authorize(creds)
-spreadsheet=gs.open_by_key(SHEET_ID)
-ws=spreadsheet.worksheet("Furina")
+logging.basicConfig(
+    level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
+    format='%(levelname)s - %(message)s'
+)
 
 def generate_random_code(length: int):
     """
@@ -90,16 +72,6 @@ async def send_new_error_logging(bot: commands.Bot, message: str, to_discord: bo
     if to_discord:
         await _send_log_to_discord(bot, "error", message)
 
-def set_bot():
-    intents = dc.Intents.default()
-    intents.message_content = True  
-    intents.members = True 
-
-    bot = commands.Bot(command_prefix=None, intents=intents)
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_VERSION)
-    return bot, model
-
 def add_channel_to_gs(channel_id: str):
     ws.append_row([channel_id])
 
@@ -156,6 +128,9 @@ def get_general_embed(message: str | dict,
     
     embed.set_footer(text=f"Powered by HiHiYoyo606 | Version: {VERSION}")
     return embed
+
+def get_server_queue(guild: dc.Guild):
+    return all_server_queue[guild.id]
 
 if __name__ == "__main__":
     print(get_all_channels_from_gs())
