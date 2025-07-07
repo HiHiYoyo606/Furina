@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from discord.ext import commands
 from collections import defaultdict
 from google.oauth2.service_account import Credentials
+from enum import Enum
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -19,8 +20,19 @@ WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
 GEMINI_VERSION = os.getenv("GEMINI_VERSION")
 GOOGLE_SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+TOTAL_BLOCKS = 15
 with open("version.txt", "r") as f:
     VERSION = f.read().strip()
+
+class HoyoGames(Enum):
+    GI= "Genshin Impact"
+    HSR= "Honkai Star Rail"
+    ZZZ= "Zenless Zone Zero"
+song_file_dict = {
+    "Genshin Impact": "gisongs.txt",
+    "Honkai Star Rail": "hsrsongs.txt",
+    "Zenless Zone Zero": "zzzsongs.txt"
+}
 
 def set_bot():
     intents = dc.Intents.default()
@@ -42,7 +54,7 @@ port = int(os.environ.get("PORT", 8080))
 threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 bot, model = set_bot(), set_model()
-playback_status = {}      # 用來追蹤每個伺服器目前播放狀態（"playing", "paused" 等）
+server_playing_hoyomix = {} # 存每個server目前是否播放Hoyo的歌
 all_server_queue = defaultdict(asyncio.Queue) # MusicInfoView
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)

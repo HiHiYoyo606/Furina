@@ -129,9 +129,5 @@ def get_general_embed(message: str | dict,
     embed.set_footer(text=f"Powered by HiHiYoyo606 | Version: {VERSION}")
     return embed
 
-def get_server_queue(guild: dc.Guild):
-    return all_server_queue[guild.id]
-
 if __name__ == "__main__":
-    print(get_all_channels_from_gs())
     pass
