@@ -1,11 +1,45 @@
 import logging
 import asyncio
 import discord as dc
+import time
 from objects import *
 from generalmethods import *
 from views import *
 from discord.app_commands import describe
 from yt_dlp import YoutubeDL as ytdlp
+
+class ListeningTimer:
+    def __init__(self):
+        self._start_time = None
+        self._elapsed = 0
+        self._paused = False
+
+    def start(self):
+        if self._start_time is None:
+            self._start_time = time.monotonic()
+            self._paused = False
+
+    def pause(self):
+        if self._start_time and not self._paused:
+            self._elapsed += time.monotonic() - self._start_time
+            self._paused = True
+
+    def resume(self):
+        if self._paused:
+            self._start_time = time.monotonic()
+            self._paused = False
+
+    def get_elapsed(self) -> int:
+        if self._start_time:
+            if self._paused:
+                return int(self._elapsed)
+            return int(self._elapsed + time.monotonic() - self._start_time)
+        return 0
+
+    def reset(self):
+        self._start_time = None
+        self._elapsed = 0
+        self._paused = False
 
 @bot.tree.command(name="join", description="加入語音頻道 | Join a voice channel.")
 async def slash_join(interaction: dc.Interaction):
@@ -129,20 +163,24 @@ async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, mess
         filled = min(int(progress / duration * TOTAL_BLOCKS), TOTAL_BLOCKS - 1)
         bar = "■" * filled + "🔘" + "□" * (TOTAL_BLOCKS - filled - 1)
         return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
-
-    for i in range(0, duration, 5):
-        if not voice_client.is_connected() or not voice_client.is_playing():
+    
+    start_time = asyncio.get_event_loop().time()
+    played_seconds = 0
+    while played_seconds < duration:
+        if not voice_client or not voice_client.is_connected() or not voice_client.is_playing():
             break
 
         if voice_client.is_paused():
-            await asyncio.sleep(5)
+            start_time = int(asyncio.get_event_loop().time())
             continue
+
+        played_seconds = int(asyncio.get_event_loop().time() - start_time)
 
         try:
             if not message:
                 break
             embed = message.embeds[0]
-            embed.set_field_at(1, name="⏳進度 | Progress", value=make_bar(i), inline=False)
+            embed.set_field_at(1, name="⏳進度 | Progress", value=make_bar(played_seconds), inline=False)
             await message.edit(embed=embed)
         except dc.NotFound:
             logging.warning(f"[{guild.name}] 播放訊息已消失，無法更新進度。")
@@ -150,7 +188,8 @@ async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, mess
         except Exception as e:
             logging.error(f"[{guild.name}] 更新 embed 失敗：{e}")
             break
-        await asyncio.sleep(5)
+
+        await asyncio.sleep(1)
 
 async def add_infoview(interaction: dc.Interaction, view: MusicInfoView, interrupt: bool = False):
     voice_client = interaction.guild.voice_client
@@ -191,8 +230,11 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
     with ytdlp(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
         if 'entries' in info:
-            info = info['entries'][0]
-    
+            if len(info['entries']) > 0:
+                info = info['entries'][0]
+            else:
+                info = ydl.extract_info(query.replace(" HOYO-MiX", " Yu-peng Music"), download=False)
+
     audio_url = info.get('url')
     title = info.get('title', 'UNKNOWN SONG')
     thumbnail = info.get("thumbnail")
@@ -205,7 +247,7 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
                          uploader=uploader, 
                          duration=duration, 
                          url=audio_url)
-    current_process = f"({current_number}/{total_number})"
+    current_process = f"> # ({current_number}/{total_number})"
     message = (await interaction.channel.send(content=current_process, embed=view.embed, view=view)) if not voice_client.is_playing() else None
     view.message = message
 
@@ -224,6 +266,8 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
         await interaction.channel.send("> 播放結束啦，要不要再加首歌 | Ended Playing, wanna queue more?\n" +
                                        "> 不加我就要走了喔 | I will go if you don't add anything.")
 
+    if isinstance(interaction.user.voice.channel, dc.StageChannel):
+        await interaction.user.voice.channel.guild.me.edit(suppress=False)
     # 拿出下一首 view
     view: MusicInfoView = await queue.get()
     audio_url = view.url
@@ -244,10 +288,10 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
             full_played = True
             
             if view and view.message:
-                asyncio.run_coroutine_threadsafe(view.message.delete(), bot.loop)
+                asyncio.ensure_future(view.message.delete(), bot.loop)
 
             # 播完接下一首（遞迴）
-            asyncio.run_coroutine_threadsafe(
+            asyncio.ensure_future(
                 play_next_from_queue(interaction, full_played),
                 bot.loop
             )
@@ -283,6 +327,8 @@ async def play_single_song(interaction: dc.Interaction,
         'options': '-vn'
     }
     voice_client = interaction.guild.voice_client
+    if isinstance(interaction.user.voice.channel, dc.StageChannel):
+        await interaction.user.voice.channel.guild.me.edit(suppress=False)
     guild = interaction.guild
             
     def safe_callback_factory(view: MusicInfoView):

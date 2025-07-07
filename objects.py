@@ -20,7 +20,7 @@ WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
 GEMINI_VERSION = os.getenv("GEMINI_VERSION")
 GOOGLE_SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-TOTAL_BLOCKS = 15
+TOTAL_BLOCKS = 20
 with open("version.txt", "r") as f:
     VERSION = f.read().strip()
 
