@@ -84,6 +84,7 @@ async def slash_leave(interaction: dc.Interaction):
             if hasattr(view, "message") and view.message and not view.is_deleted:
                 await view.message.delete()
         all_server_queue.pop(interaction.guild.id)
+        server_playing_hoyomix.pop(interaction.guild.id)
         interaction.guild.voice_client.stop()
 
     await voice_client.disconnect()
@@ -395,6 +396,7 @@ async def play_hoyomix_list(interaction: dc.Interaction, game: HoyoGames = None)
                                done_played=event)
         await event.wait()
     
+    all_server_queue.pop(interaction.guild.id)
     server_playing_hoyomix.pop(interaction.guild.id)
     if full_played:
         await interaction.channel.send("> 播放結束啦，要不要再加首歌 | Ended Playing, wanna queue more?\n" +

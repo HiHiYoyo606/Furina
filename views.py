@@ -341,6 +341,7 @@ class MusicInfoView(dc.ui.View):
             for view in snapshot:
                 if hasattr(view, "message") and view.message and not view.is_deleted:
                     await view.message.delete()
+            server_playing_hoyomix.pop(interaction.guild.id)
             all_server_queue.pop(interaction.guild.id)
             interaction.guild.voice_client.stop()
 
