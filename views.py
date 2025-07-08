@@ -46,7 +46,6 @@ class HelpView(PaginatedViewBase):
                 "/join": "加入語音頻道 | Join a voice channel.",
                 "/leave": "離開語音頻道 | Leave a voice channel.",
                 "/queue": "查看播放序列 | Check the play queue.",
-                "/songinfo": "生成音樂控制面板 | Generate music control panel",
                 "/hoyomixlist": "查看Furina收錄的Hoyomix歌單 | Check Furina's Hoyomix list.",
                 "/playyt": "播放一首Youtube歌曲 | Play a song with Youtube.",
                 "/playgi": "播放原神的隨機原聲帶內容 | Play a random song from Genshin Impact OST.",
@@ -72,7 +71,7 @@ class HelpView(PaginatedViewBase):
 class MemberInfoView(PaginatedViewBase):
     def __init__(self, user: dc.Member):
         super().__init__(timeout=120)
-        self.pages = self.generate_embeds(user=user)
+        self.pages = asyncio.run_coroutine_threadsafe(self.generate_embeds(user=user), bot.loop).result()
         return None
 
     async def generate_embeds(self, user: dc.Member):

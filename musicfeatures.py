@@ -104,25 +104,6 @@ async def slash_queue(interaction: dc.Interaction):
     message = "\n".join(f"> {i+1}. {view.title}" for i, view in enumerate(items))
     await interaction.response.send_message(f"> 當前播放序列 | Current play queue:\n{message}", ephemeral=False)
 
-@bot.tree.command(name="songinfo", description="生成音樂控制面板 | Generate music control panel")
-async def slash_songinfo(interaction: dc.Interaction):
-    if isinstance(interaction.channel, dc.DMChannel):
-        await interaction.response.send_message("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
-        return
-    
-    voice_client = interaction.guild.voice_client
-    if not voice_client or not voice_client.is_playing():
-        await interaction.response.send_message("> 目前沒有歌曲正在播放 | No song is currently playing.", ephemeral=True)
-        return
-    
-    view = MusicInfoView(guild_id=interaction.guild.id, 
-                         title=voice_client.source.title, 
-                         thumbnail=voice_client.source.thumbnail, 
-                         uploader=voice_client.source.uploader, 
-                         duration=voice_client.source.duration, 
-                         url=voice_client.source.url)
-    await interaction.response.send_message(embed=view.embed, view=view)
-
 @bot.tree.command(name="hoyomixlist", description="查看Furina收錄的Hoyomix歌單 | Check Furina's Hoyomix list.")
 @dc.app_commands.choices(choice=[
     dc.app_commands.Choice(name="原神 Genshin Impact", value="GI"),
@@ -247,7 +228,7 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
                          uploader=uploader, 
                          duration=duration, 
                          url=audio_url)
-    current_process = f"> # ({current_number}/{total_number})"
+    current_process = f"> # ({current_number}/{total_number})" if current_number is not None and total_number is not None else ""
     message = (await interaction.channel.send(content=current_process, embed=view.embed, view=view)) if not voice_client.is_playing() else None
     view.message = message
 
@@ -288,13 +269,11 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
             full_played = True
             
             if view and view.message:
-                asyncio.ensure_future(view.message.delete(), bot.loop)
+                bot.loop.create_task(view.message.delete())
+                view.is_deleted = True
 
             # 播完接下一首（遞迴）
-            asyncio.ensure_future(
-                play_next_from_queue(interaction, full_played),
-                bot.loop
-            )
+            bot.loop.create_task(play_next_from_queue(interaction, full_played))
         return inner_callback
 
     def play_music():
