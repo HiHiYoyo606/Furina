@@ -107,14 +107,14 @@ async def play_connection_check(interaction: dc.Interaction):
 
     await interaction.followup.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
 
-async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, message: dc.Message, duration: int, start_time: int = 0):
+async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, message: dc.Message, duration: int, start_second: int = 0):
     def make_bar(progress):
         filled = min(int(progress / duration * TOTAL_BLOCKS), TOTAL_BLOCKS - 1)
         bar = "■" * filled + "🔘" + "□" * (TOTAL_BLOCKS - filled - 1)
         return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
     
     start_time = asyncio.get_event_loop().time()
-    played_seconds = start_time
+    played_seconds = start_second
     while played_seconds < duration:
         if not voice_client or not voice_client.is_connected() or not voice_client.is_playing():
             break
@@ -123,7 +123,7 @@ async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, mess
             start_time = int(asyncio.get_event_loop().time())
             continue
 
-        played_seconds = int(asyncio.get_event_loop().time() - start_time)
+        played_seconds = int(asyncio.get_event_loop().time() - start_time + start_second)
 
         try:
             if not message:

@@ -158,18 +158,14 @@ async def slash_rock_paper_scissors(interaction: dc.Interaction, choice: str):
 
 @bot.tree.command(name="addchannel", description="新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.")
 @describe(channel_id="要新增的頻道的ID(留空則為當前頻道) | The ID of the channel to add. (leave empty for current channel)")
-async def slash_add_channel(interaction: dc.Interaction, channel_id: str = None):
+async def slash_add_channel(interaction: dc.Interaction, channel_id: int = None):
     """新增一個和芙寧娜對話的頻道"""
     """回傳: None"""
     if channel_id is None:
         channel_id = str(interaction.channel.id)
 
-    if not channel_id.isdigit():
-        await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
-        return
-
-    channel_list = GoogleSheet.get_all_channels_from_gs()
-    if int(channel_id) not in channel_list:
+    channel_list = await GoogleSheet.get_all_channels_from_gs()
+    if channel_id not in channel_list:
         GoogleSheet.add_channel_to_gs(channel_id)
         await interaction.response.send_message(f"> ✅已新增頻道 `{channel_id}`")
     else:
@@ -179,18 +175,15 @@ async def slash_add_channel(interaction: dc.Interaction, channel_id: str = None)
 
 @bot.tree.command(name="removechannel", description="從名單中刪除一個頻道ID | Remove a channel ID from the list.")
 @describe(channel_id="要刪除的頻道ID(留空則為當前頻道) | The ID of the channel to remove (leave empty for current channel).")
-async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = None):
+async def slash_remove_channel(interaction: dc.Interaction, channel_id: int = None):
     """從名單中刪除一個頻道ID"""
     """回傳: None"""
     if channel_id is None:
         channel_id = str(interaction.channel.id)
 
-    if not channel_id.isdigit():
-        await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
-        return
     try:
-        all_channels = GoogleSheet.get_all_channels_from_gs()
-        if int(channel_id) in all_channels:
+        all_channels = await GoogleSheet.get_all_channels_from_gs()
+        if channel_id in all_channels:
             GoogleSheet.remove_channel_from_gs(channel_id)
             await interaction.response.send_message(f"> 已移除頻道 `{channel_id}` | Removed channel `{channel_id}`.")
         else:

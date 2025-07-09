@@ -125,17 +125,17 @@ class GoogleSheet:
         furina_error_ws.append_row(content)
 
     @staticmethod
-    def add_channel_to_gs(channel_id: str):
-        furina_channel_ws.append_row([channel_id])
+    def add_channel_to_gs(channel_id: int):
+        furina_channel_ws.append_row([channel_id.__str__()])
 
     @staticmethod
-    def remove_channel_from_gs(channel_id: str):
+    def remove_channel_from_gs(channel_id: int):
         rows = furina_channel_ws.get_all_values()
         header = rows[0]
         data = rows[1:]
 
         new_data = [
-            row for row in data if row[0] != channel_id
+            row for row in data if row[0] != channel_id.__str__()
         ]
 
         furina_channel_ws.clear()
