@@ -89,7 +89,7 @@ async def chat_process_message(bot: commands.Bot, model: GenerativeModel, messag
     """回傳: None"""
     TARGET_CHANNEL_IDS = GoogleSheet.get_all_channels_from_gs()
 
-    if message.author == bot.user:
+    if message.author.id == bot.user.id:
         return  # 忽略自己發送的訊息
     
     # 測試區 
