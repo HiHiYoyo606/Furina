@@ -18,7 +18,10 @@ LOGGING_CHANNEL_ID = int(os.getenv("LOGGING_CHANNEL_ID")) # Log sending channel
 SHEET_ID = os.getenv("SHEET_ID")
 WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
 GEMINI_VERSION = os.getenv("GEMINI_VERSION")
-GOOGLE_SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")
+GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL = os.getenv("GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL")
+GOOGLE_FURINA_ERROR_SHEET_CSV_URL = os.getenv("GOOGLE_FURINA_ERROR_SHEET_CSV_URL")
+FURINA_CHANNEL_WORKSHEET_NAME=os.getenv("FURINA_CHANNEL_WORKSHEET_NAME")
+FURINA_ERROR_WORKSHEET_NAME=os.getenv("FURINA_ERROR_WORKSHEET_NAME")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 TOTAL_BLOCKS = 20
 with open("version.txt", "r") as f:
@@ -33,6 +36,10 @@ song_file_dict = {
     "Honkai Star Rail": "hsrsongs.txt",
     "Zenless Zone Zero": "zzzsongs.txt"
 }
+developers_id = [
+    802714733219414047,
+    985858138542600212,
+]
 
 def set_bot():
     intents = dc.Intents.default()
@@ -59,7 +66,8 @@ all_server_queue = defaultdict(asyncio.Queue) # MusicInfoView
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)
 spreadsheet=gs.open_by_key(SHEET_ID)
-ws=spreadsheet.worksheet("Furina")
+furina_channel_ws=spreadsheet.worksheet(FURINA_CHANNEL_WORKSHEET_NAME)
+furina_error_ws=spreadsheet.worksheet(FURINA_ERROR_WORKSHEET_NAME)
 
 if __name__ == "__main__":
     pass

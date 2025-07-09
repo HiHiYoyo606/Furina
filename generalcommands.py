@@ -1,5 +1,5 @@
 import random
-from objects import bot
+from objects import bot, developers_id
 from views import *
 from discord.app_commands import describe
 from generalmethods import *
@@ -120,7 +120,8 @@ async def slash_whois(interaction: dc.Interaction, user: dc.Member):
         return
     
     view = MemberInfoView(user)
-    await interaction.response.send_message(view=view, embed=view.pages[0], ephemeral=False)
+    pages = await view.get_pages()
+    await interaction.response.send_message(view=view, embed=pages[0], ephemeral=False)
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /whois to view {user.name}'s infomation.")
 
 @bot.tree.command(name="serverinfo", description="顯示伺服器資訊 | Show server information.")
@@ -167,9 +168,9 @@ async def slash_add_channel(interaction: dc.Interaction, channel_id: str = None)
         await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
         return
 
-    channel_list = get_all_channels_from_gs()
+    channel_list = GoogleSheet.get_all_channels_from_gs()
     if int(channel_id) not in channel_list:
-        add_channel_to_gs(channel_id)
+        GoogleSheet.add_channel_to_gs(channel_id)
         await interaction.response.send_message(f"> ✅已新增頻道 `{channel_id}`")
     else:
         await interaction.response.send_message("> ⚠️此頻道ID 已存在", ephemeral=True)
@@ -177,7 +178,7 @@ async def slash_add_channel(interaction: dc.Interaction, channel_id: str = None)
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /addchannel with {channel_id} added.")
 
 @bot.tree.command(name="removechannel", description="從名單中刪除一個頻道ID | Remove a channel ID from the list.")
-@dc.app_commands.describe(channel_id="要刪除的頻道ID(留空則為當前頻道) | The ID of the channel to remove(leave empty for current channel).")
+@describe(channel_id="要刪除的頻道ID(留空則為當前頻道) | The ID of the channel to remove (leave empty for current channel).")
 async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = None):
     """從名單中刪除一個頻道ID"""
     """回傳: None"""
@@ -188,9 +189,9 @@ async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = No
         await interaction.response.send_message("> 別想騙我，這甚至不是數字:< | This is not a number.")
         return
     try:
-        all_channels = get_all_channels_from_gs()
+        all_channels = GoogleSheet.get_all_channels_from_gs()
         if int(channel_id) in all_channels:
-            remove_channel_from_gs(channel_id)
+            GoogleSheet.remove_channel_from_gs(channel_id)
             await interaction.response.send_message(f"> 已移除頻道 `{channel_id}` | Removed channel `{channel_id}`.")
         else:
             await interaction.response.send_message("> 此頻道不在名單上 | This channel is not in the list.", ephemeral=True)
@@ -198,6 +199,32 @@ async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = No
         await interaction.response.send_message("> 尚未建立頻道資料，無法刪除 | The data for channels does not exist.", ephemeral=True)
 
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /removechannel with {channel_id} removed.")
+
+@bot.tree.command(name="reporterror", description="回報你所發現的錯誤 | Report an error you found.")
+@describe(content="錯誤內容 | Error content.")
+async def slash_report_error(interaction: dc.Interaction, content: str):
+    """回報你所發現的錯誤"""
+    """回傳: None"""
+    await add_error(bot=bot, interaction=interaction, content=content)
+
+@bot.tree.command(name="serving", description="查詢Furina存在的所有伺服器(僅限Furina的開發者) | Check Furina's servers. (Only for Furina's developers)")
+async def slash_serving(interaction: dc.Interaction):
+    """查詢Furina存在的所有伺服器"""
+    """回傳: None"""
+
+    if interaction.user.id not in developers_id:
+        await interaction.response.send_message("> 此指令僅限Furina的開發者使用 | This command is only for Furina's developers.", ephemeral=True)
+        return
+    
+    guilds = bot.guilds
+    guild_names = ["> " + guild.name for guild in guilds]
+    await interaction.response.send_message("\n".join(guild_names))
+
+@bot.tree.command(name="fixederror", description="向使用者回報錯誤已修復(僅限Furina的開發者) | Report an error has been fixed. (Only for Furina's developers)")
+@describe(hashcode="錯誤代碼 | Error code.")
+@describe(hint="給使用者的提示 | Hint for the user.")
+async def slash_fixed_error(interaction: dc.Interaction, hashcode: str, hint: str = None):
+    await fix_error(bot=bot, interaction=interaction, hashcode=hashcode, hint=hint)
 
 if __name__ == "__main__":
     pass

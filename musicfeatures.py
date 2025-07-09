@@ -1,45 +1,11 @@
 import logging
 import asyncio
 import discord as dc
-import time
 from objects import *
 from generalmethods import *
 from views import *
 from discord.app_commands import describe
 from yt_dlp import YoutubeDL as ytdlp
-
-class ListeningTimer:
-    def __init__(self):
-        self._start_time = None
-        self._elapsed = 0
-        self._paused = False
-
-    def start(self):
-        if self._start_time is None:
-            self._start_time = time.monotonic()
-            self._paused = False
-
-    def pause(self):
-        if self._start_time and not self._paused:
-            self._elapsed += time.monotonic() - self._start_time
-            self._paused = True
-
-    def resume(self):
-        if self._paused:
-            self._start_time = time.monotonic()
-            self._paused = False
-
-    def get_elapsed(self) -> int:
-        if self._start_time:
-            if self._paused:
-                return int(self._elapsed)
-            return int(self._elapsed + time.monotonic() - self._start_time)
-        return 0
-
-    def reset(self):
-        self._start_time = None
-        self._elapsed = 0
-        self._paused = False
 
 @bot.tree.command(name="join", description="加入語音頻道 | Join a voice channel.")
 async def slash_join(interaction: dc.Interaction):
@@ -84,7 +50,7 @@ async def slash_leave(interaction: dc.Interaction):
             if hasattr(view, "message") and view.message and not view.is_deleted:
                 await view.message.delete()
         all_server_queue.pop(interaction.guild.id)
-        server_playing_hoyomix.pop(interaction.guild.id)
+        remove_hoyomix_status(guild=interaction.guild)
         interaction.guild.voice_client.stop()
 
     await voice_client.disconnect()
@@ -243,8 +209,9 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
 async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = False):
     guild_id = interaction.guild.id
     queue = all_server_queue[guild_id]
+    voice_client = interaction.guild.voice_client
 
-    if queue.empty() and full_played:
+    if queue.empty() and full_played and voice_client is not None and not voice_client.is_playing():
         await interaction.channel.send("> 播放結束啦，要不要再加首歌 | Ended Playing, wanna queue more?\n" +
                                        "> 不加我就要走了喔 | I will go if you don't add anything.")
 
@@ -397,7 +364,7 @@ async def play_hoyomix_list(interaction: dc.Interaction, game: HoyoGames = None)
         await event.wait()
     
     all_server_queue.pop(interaction.guild.id)
-    server_playing_hoyomix.pop(interaction.guild.id)
+    remove_hoyomix_status(guild=interaction.guild)
     if full_played:
         await interaction.channel.send("> 播放結束啦，要不要再加首歌 | Ended Playing, wanna queue more?\n" +
                                        "> 不加我就要走了喔 | I will go if you don't add anything.")

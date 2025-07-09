@@ -1,6 +1,6 @@
 import discord as dc
 import math
-from generalmethods import get_general_embed, send_new_error_logging
+from generalmethods import get_general_embed, send_new_error_logging, remove_hoyomix_status
 from datetime import datetime, timedelta, timezone
 from objects import *
 from typing import Optional, Callable, Awaitable
@@ -39,6 +39,7 @@ class HelpView(PaginatedViewBase):
                 "/serverinfo": "顯示伺服器資訊 | Show server information.",
                 "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
                 "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
+                "/reporterror": "回報你所發現的錯誤 | Report an error you found."
             }, color=dc.Color.blue(), title="一般指令 | Normal Commands"),
 
             # Page 語音指令
@@ -71,8 +72,14 @@ class HelpView(PaginatedViewBase):
 class MemberInfoView(PaginatedViewBase):
     def __init__(self, user: dc.Member):
         super().__init__(timeout=120)
-        self.pages = asyncio.run_coroutine_threadsafe(self.generate_embeds(user=user), bot.loop).result()
+        self.page_task = asyncio.create_task(self.generate_embeds(user=user))
+        self.pages = None
         return None
+    
+    async def get_pages(self):
+        if not self.pages:
+            self.pages = await self.page_task
+        return self.pages
 
     async def generate_embeds(self, user: dc.Member):
         embeds = []
@@ -341,7 +348,8 @@ class MusicInfoView(dc.ui.View):
             for view in snapshot:
                 if hasattr(view, "message") and view.message and not view.is_deleted:
                     await view.message.delete()
-            server_playing_hoyomix.pop(interaction.guild.id)
+            
+                remove_hoyomix_status(guild=interaction.guild)
             all_server_queue.pop(interaction.guild.id)
             interaction.guild.voice_client.stop()
 

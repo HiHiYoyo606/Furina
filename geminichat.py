@@ -1,7 +1,7 @@
 import discord as dc
 import asyncio
 import logging
-from generalmethods import get_all_channels_from_gs
+from generalmethods import GoogleSheet
 from discord.ext import commands
 from generalmethods import send_new_error_logging, send_new_info_logging
 from google.generativeai import GenerativeModel
@@ -87,7 +87,7 @@ async def chat_sent_message_to_channel(bot: commands.Bot, original_message: dc.M
 async def chat_process_message(bot: commands.Bot, model: GenerativeModel, message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
     """回傳: None"""
-    TARGET_CHANNEL_IDS = get_all_channels_from_gs()
+    TARGET_CHANNEL_IDS = GoogleSheet.get_all_channels_from_gs()
 
     if message.author == bot.user:
         return  # 忽略自己發送的訊息

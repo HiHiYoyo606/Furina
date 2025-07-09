@@ -4,7 +4,8 @@ import discord as dc
 import logging
 import csv
 import requests
-from objects import all_server_queue, ws, LOGGING_CHANNEL_ID, VERSION, GOOGLE_SHEET_CSV_URL
+from objects import furina_channel_ws, furina_error_ws, developers_id, server_playing_hoyomix
+from objects import LOGGING_CHANNEL_ID, VERSION, GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL, GOOGLE_FURINA_ERROR_SHEET_CSV_URL
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
 from discord import Embed
@@ -42,7 +43,7 @@ def _send_log_to_main_logging(level: str, message: str) -> None:
     elif level == "error":
         logging.error(full_log_message)
 
-async def _send_log_to_discord(bot: commands.Bot, level: str, message: str) -> None:
+async def _send_log_to_discord(bot: commands.Bot, level: str, message: str, ping_admin: bool = False) -> None:
     """Helper function to format and send log messages to Discord and console."""
     now_time = get_hkt_time()
     embed_parts = [
@@ -56,7 +57,12 @@ async def _send_log_to_discord(bot: commands.Bot, level: str, message: str) -> N
     try:
         log_channel = bot.get_channel(LOGGING_CHANNEL_ID)
         if log_channel:
-            await log_channel.send(embed=embed)
+            pings = []
+            for userid in developers_id:
+                user = await bot.fetch_user(userid)
+                mention = user.mention
+                pings.append(mention)            
+            await log_channel.send(content=" ".join(pings) if ping_admin else "", embed=embed)
         else:
             logging.warning(f"Logging channel with ID {LOGGING_CHANNEL_ID} not found.")
     except Exception as e:
@@ -67,43 +73,158 @@ async def send_new_info_logging(bot: commands.Bot, message: str, to_discord: boo
     if to_discord:
         await _send_log_to_discord(bot, "info", message)
 
-async def send_new_error_logging(bot: commands.Bot, message: str, to_discord: bool = True) -> None:
+async def send_new_error_logging(bot: commands.Bot, message: str, to_discord: bool = True, ping_admin: bool = False) -> None:
     _send_log_to_main_logging("error", message)
     if to_discord:
-        await _send_log_to_discord(bot, "error", message)
+        await _send_log_to_discord(bot, "error", message, ping_admin)
 
-def add_channel_to_gs(channel_id: str):
-    ws.append_row([channel_id])
+class GoogleSheet:
+    def __init__(self):
+        self.error_worksheet = furina_error_ws
+        self.channel_worksheet = furina_channel_ws
 
-def remove_channel_from_gs(channel_id: str):
-    rows = ws.get_all_values()
-    header = rows[0]
-    data = rows[1:]
+    @staticmethod
+    def get_all_channels_from_gs() -> list[int]:
+        file = requests.get(GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL)
+        csv_content = file.content.decode("utf-8").splitlines()
+        
+        all_channels = []
 
-    new_data = [
-        row for row in data if row[0] != channel_id
-    ]
+        reader = csv.DictReader(csv_content)
+        for row in reader:
+            try:
+                channel_id = int(row.get("dc_channel_id", "").strip())
+                all_channels.append(channel_id)
+            except (ValueError, TypeError):
+                continue  # 忽略轉換失敗或空值
 
-    ws.clear()
-    ws.append_row(header)
-    ws.append_rows(new_data)
-
-def get_all_channels_from_gs() -> list[int]:
-    file = requests.get(GOOGLE_SHEET_CSV_URL)
-    csv_content = file.content.decode("utf-8").splitlines()
+        return all_channels
     
-    all_channels = []
+    @staticmethod
+    def is_hash_code_in_error_sheet(code: str) -> bool:
+        file = requests.get(GOOGLE_FURINA_ERROR_SHEET_CSV_URL)
+        csv_content = file.content.decode("utf-8").splitlines()
+        
+        all_hash_codes = []
+        reader = csv.DictReader(csv_content)
+        for row in reader:
+            try:
+                hash_code = row.get("hashcode", "").strip()
+                all_hash_codes.append(hash_code)
+            except (ValueError, TypeError):
+                continue  # 忽略轉換失敗或空值
 
-    reader = csv.DictReader(csv_content)
-    for row in reader:
-        try:
-            channel_id = int(row.get("channel_id", "").strip())
-            all_channels.append(channel_id)
-        except (ValueError, TypeError):
-            continue  # 忽略轉換失敗或空值
+        return code in all_hash_codes
+    
+    @staticmethod
+    def add_error_to_gs(content: list):
+        furina_error_ws.append_row(content)
 
-    return all_channels
+    @staticmethod
+    def add_channel_to_gs(channel_id: str):
+        furina_channel_ws.append_row([channel_id])
 
+    @staticmethod
+    def remove_channel_from_gs(channel_id: str):
+        rows = furina_channel_ws.get_all_values()
+        header = rows[0]
+        data = rows[1:]
+
+        new_data = [
+            row for row in data if row[0] != channel_id
+        ]
+
+        furina_channel_ws.clear()
+        furina_channel_ws.append_row(header)
+        furina_channel_ws.append_rows(new_data)
+
+    @staticmethod
+    def remove_error_from_gs(hashcode: str):
+        """
+        remove error from google sheet.
+
+        return:
+            user_id: str
+            channel_id: str
+            guild_id: str
+            error_content: str
+        """
+        rows = furina_error_ws.get_all_values()
+        header = rows[0]
+        data = rows[1:]
+        hash_index = header.index("hashcode")
+
+        user_id_index = header.index("userid")
+        channel_id_index = header.index("channelid")
+        content_index = header.index("content")
+
+        user_id, channel_id, content = None, None, None
+        new_data = []
+        for row in data:
+            if row[hash_index] == hashcode:
+                user_id: str = row[user_id_index]
+                channel_id: str = row[channel_id_index]
+                content: str = row[content_index]
+            else:
+                new_data.append(row)
+
+        furina_error_ws.clear()
+        furina_error_ws.append_row(header)
+        furina_error_ws.append_rows(new_data)
+        return user_id, channel_id, content
+
+async def add_error(bot: commands.Bot, interaction: dc.Interaction, content: str):
+    await interaction.response.defer(thinking=True)
+    hash_code = generate_random_code(8)
+    while GoogleSheet.is_hash_code_in_error_sheet(hash_code):
+        hash_code = generate_random_code(8)
+
+    is_dm = isinstance(interaction.channel, dc.DMChannel)
+    if is_dm:
+        dm_channel = interaction.user.dm_channel or await interaction.user.create_dm()
+        dm_channel_id = str(dm_channel.id)
+    row = [
+        content,
+        interaction.user.name,
+        str(interaction.user.id),
+        interaction.guild.name if not is_dm else None,
+        str(interaction.guild.id) if not is_dm else None,
+        str(interaction.channel.id) if not is_dm else str(dm_channel_id),
+        get_hkt_time(),
+        hash_code
+    ]
+    GoogleSheet.add_error_to_gs(row)
+
+    await interaction.followup.send("> 您的錯誤回報成功被記錄 | Your error report has been recorded successfully.")
+    await send_new_error_logging(bot=bot, message=f"{interaction.user.name} has reported an error: {content}", ping_admin=True)
+
+async def fix_error(bot: commands.Bot, interaction: dc.Interaction, hashcode: str, hint: str = None):
+    await interaction.response.defer(thinking=True)
+    if interaction.user.id not in developers_id:
+        await interaction.followup.send("> 此指令僅限Furina的開發者使用 | This command is only for Furina's developers.", ephemeral=True)
+        return
+    
+    user_id, channel_id, content = GoogleSheet.remove_error_from_gs(hashcode)
+    if content is None:
+        await interaction.followup.send("> 錯誤不存在 | Error does not exist.")
+        return
+
+    try:
+        user = await bot.fetch_user(user_id)
+        channel: dc.TextChannel = await bot.fetch_channel(int(channel_id))
+        fix_message = f"{user.mention}\n> 您的錯誤已修復 | Your error has been fixed.\n> 錯誤內容 | Content: {content}"
+        if hint:
+            fix_message += f"\n> 提示 | Hint: {hint}"
+        await channel.send(fix_message)
+        await interaction.followup.send("> 向使用者回報成功 | Report to user successfully.")
+    except Exception as e:
+        await interaction.followup.send("> 向使用者回報失敗 | Failed to report to user.")
+        await send_new_error_logging(bot=bot, message=f"Failed to report to user: {e}", to_discord=False)
+        return
+
+def remove_hoyomix_status(guild: dc.Guild):
+    if server_playing_hoyomix.get(guild.id):
+        server_playing_hoyomix.pop(guild.id)
 
 def get_general_embed(message: str | dict, 
                       color: dc.Color = dc.Color.blue(), 
