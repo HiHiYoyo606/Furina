@@ -196,7 +196,7 @@ async def add_error(bot: commands.Bot, interaction: dc.Interaction, content: str
     GoogleSheet.add_error_to_gs(row)
 
     await interaction.followup.send("> 您的錯誤回報成功被記錄 | Your error report has been recorded successfully.")
-    await send_new_error_logging(bot=bot, message=f"{interaction.user.name} has reported an error: {content}", ping_admin=True)
+    await send_new_error_logging(bot=bot, message=f"{interaction.user.name} has reported an error: {content}\nHashcode: {hash_code}", ping_admin=True)
 
 async def fix_error(bot: commands.Bot, interaction: dc.Interaction, hashcode: str, hint: str = None):
     await interaction.response.defer(thinking=True)
