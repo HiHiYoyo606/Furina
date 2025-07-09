@@ -107,14 +107,14 @@ async def play_connection_check(interaction: dc.Interaction):
 
     await interaction.followup.send("> 我進來了~讓我找一下歌... | I joined the channel! Give me a second...")
 
-async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, message: dc.Message, duration: int):
+async def update_music_embed(guild: dc.Guild, voice_client: dc.VoiceClient, message: dc.Message, duration: int, start_time: int = 0):
     def make_bar(progress):
         filled = min(int(progress / duration * TOTAL_BLOCKS), TOTAL_BLOCKS - 1)
         bar = "■" * filled + "🔘" + "□" * (TOTAL_BLOCKS - filled - 1)
         return f"{bar}  `{int(progress) // 60}m{int(progress) % 60}s / {duration // 60}m{duration % 60}s`"
     
     start_time = asyncio.get_event_loop().time()
-    played_seconds = 0
+    played_seconds = start_time
     while played_seconds < duration:
         if not voice_client or not voice_client.is_connected() or not voice_client.is_playing():
             break
@@ -155,7 +155,9 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
                              current_number: int = None, 
                              total_number: int = None,
                              command: str = "playyt", 
-                             quiet: bool = True):
+                             quiet: bool = True, 
+                             start_m: int = 0, 
+                             start_s: int = 0):
     """
     Get ytdlp informations, push it to the queue.
     Parameters:
@@ -195,7 +197,9 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
                          thumbnail=thumbnail, 
                          uploader=uploader, 
                          duration=duration, 
-                         url=audio_url)
+                         url=audio_url, 
+                         start_m=start_m, 
+                         start_s=start_s)
     current_process = f"> # ({current_number}/{total_number})" if current_number is not None and total_number is not None else ""
     message = (await interaction.channel.send(content=current_process, embed=view.embed, view=view)) if not voice_client.is_playing() else None
     view.message = message
@@ -212,7 +216,7 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
     queue = all_server_queue[guild_id]
     voice_client = interaction.guild.voice_client
 
-    if queue.empty() and full_played and voice_client is not None and not voice_client.is_playing():
+    if queue.empty() and voice_client is not None and not voice_client.is_playing():
         await interaction.channel.send("> 播放結束啦，要不要再加首歌 | Ended Playing, wanna queue more?\n" +
                                        "> 不加我就要走了喔 | I will go if you don't add anything.")
 
@@ -222,12 +226,17 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
     view: MusicInfoView = await queue.get()
     audio_url = view.url
     duration = view.duration
+    start_time = view.start_m*60 + view.start_s
     if not view.message:
         view.message = await interaction.channel.send(embed=view.embed, view=view)
     voice_client = interaction.guild.voice_client
 
+    before_options = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+    if start_time != 0:
+        before_options+=f"-ss {start_time}"
+
     ffmpeg_options = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'before_options': before_options,
         'options': '-vn'
     }
 
@@ -252,7 +261,7 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
         )
 
     await asyncio.get_event_loop().run_in_executor(None, play_music)
-    bot.loop.create_task(update_music_embed(interaction.guild, voice_client, view.message, duration))
+    bot.loop.create_task(update_music_embed(interaction.guild, voice_client, view.message, duration, start_time))
 
 async def play_single_song(interaction: dc.Interaction, 
                            query: str,
@@ -373,7 +382,9 @@ async def play_hoyomix_list(interaction: dc.Interaction, game: HoyoGames = None)
 @bot.tree.command(name="playyt", description="播放一首Youtube歌曲")
 @describe(query="關鍵字 | Keyword.")
 @describe(skip="是否插播(預設否) | Whether to interrupt current song (default False).")
-async def slash_playyt(interaction: dc.Interaction, query: str, skip: bool = False):
+@describe(startm="開始播放的分鐘數(預設0) | The number of minutes to start playing (default 0).")
+@describe(starts="開始播放的秒數(預設0) | The number of seconds to start playing (default 0).")
+async def slash_playyt(interaction: dc.Interaction, query: str, skip: bool = False, startm: int = 0, starts: int = 0):
     status = await play_connection_check(interaction=interaction)
     if status == -1:
         return
@@ -382,7 +393,7 @@ async def slash_playyt(interaction: dc.Interaction, query: str, skip: bool = Fal
         await interaction.followup.send("> 已經在播放Hoyomix歌單中了 | Already playing Hoyomix list!")
         return
 
-    view = await get_ytdlp_infoview(interaction=interaction, query=query, quiet=False)
+    view = await get_ytdlp_infoview(interaction=interaction, query=query, quiet=False, start_m=startm, start_s=starts)
     await add_infoview(interaction=interaction, view=view, interrupt=skip)
     if not interaction.guild.voice_client.is_playing():
         await play_next_from_queue(interaction=interaction, full_played=True)

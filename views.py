@@ -191,7 +191,9 @@ class MusicInfoView(dc.ui.View):
                  thumbnail: str = None, 
                  uploader: str = None, 
                  duration: int = None,
-                 url: str = None):
+                 url: str = None, 
+                 start_m: int = 0, 
+                 start_s: int = 0):
         super().__init__(timeout=18000)
         self.guild_id = guild_id
         self.uploader = uploader
@@ -202,6 +204,8 @@ class MusicInfoView(dc.ui.View):
         self.embed = self.generate_embed(title=title, thumbnail=thumbnail, uploader=uploader, duration=duration)
         self.message = message
         self.is_deleted = False
+        self.start_m = start_m
+        self.start_s = start_s
         return None
 
     def generate_embed(self, title: str, thumbnail: str, uploader: str, duration: int):
