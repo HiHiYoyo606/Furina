@@ -233,7 +233,7 @@ async def play_next_from_queue(interaction: dc.Interaction, full_played: bool = 
 
     before_options = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
     if start_time != 0:
-        before_options+=f"-ss {start_time}"
+        before_options+=f" -ss {start_time}"
 
     ffmpeg_options = {
         'before_options': before_options,
