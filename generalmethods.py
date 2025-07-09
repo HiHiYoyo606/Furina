@@ -4,6 +4,7 @@ import discord as dc
 import logging
 import csv
 import requests
+import aiohttp
 from objects import furina_channel_ws, furina_error_ws, developers_id, server_playing_hoyomix
 from objects import LOGGING_CHANNEL_ID, VERSION, GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL, GOOGLE_FURINA_ERROR_SHEET_CSV_URL
 from datetime import datetime, timedelta, timezone
@@ -84,9 +85,12 @@ class GoogleSheet:
         self.channel_worksheet = furina_channel_ws
 
     @staticmethod
-    def get_all_channels_from_gs() -> list[int]:
-        file = requests.get(GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL)
-        csv_content = file.content.decode("utf-8").splitlines()
+    async def get_all_channels_from_gs() -> list[int]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL) as response:
+                text = await response.text()
+                    
+        csv_content = text.splitlines()
         
         all_channels = []
 

@@ -42,6 +42,7 @@ async def slash_leave(interaction: dc.Interaction):
     if not voice_client:
         await interaction.response.send_message("> 我目前不在語音頻道中喔 | I'm not connected to any voice channel.", ephemeral=True)
         return
+    await voice_client.disconnect()
     
     if voice_client.is_playing():
         queue = all_server_queue[interaction.guild.id]
