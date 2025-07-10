@@ -14,7 +14,7 @@ async function loadSongList(tag) {
 
     if (lastModified) {
       const date = new Date(lastModified);
-      const formatted = date.toLocaleString('sv-SE').replace(' ', '');
+      const formatted = date.toLocaleString('sv-SE');
       document.getElementById('last-updated').textContent = `最後更新時間 | Last update: ${formatted}`;
     } else {
       document.getElementById('last-updated').textContent = "最後更新時間 | Last update: 無法取得";

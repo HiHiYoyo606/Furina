@@ -1,14 +1,14 @@
 body { 
   font-family: sans-serif; padding: 2em;
-  background: linear-gradient(to bottom, #fcfa90, #ffffff);
-  color: #4451ff;
+  background: linear-gradient(to bottom, #4aa6ff, #ffffff);
+  color: #000000;
 }
 
 button { 
   margin: 1em;
   font-size: 1.1em;
   border-radius: 8px;
-  background-color: #4aa6ff;
+  background-color: #fcfa90;
   color: white;
   padding: 0.7em 1.2em;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
