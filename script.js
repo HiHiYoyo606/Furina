@@ -1,3 +1,5 @@
+const rowNumber = 4;
+
 async function loadSongList(tag) {
   const loader = document.getElementById('loader');
   const playlist = document.getElementById('playlist');
@@ -22,7 +24,7 @@ async function loadSongList(tag) {
     // 建立表格行，每行 4 首歌
     let row;
     songs.forEach((song, index) => {
-      if (index % 4 === 0) {
+      if (index % rowNumber === 0) {
         row = playlist.insertRow();
       }
       const cell = row.insertCell();
