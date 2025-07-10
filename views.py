@@ -33,7 +33,7 @@ class HelpView(PaginatedViewBase):
 
     def generate_embeds(self):
         embeds = [ 
-            # 📘 Page 一般指令
+            # Page 一般指令
             get_general_embed(message={
                 "/help": "顯示說明訊息 | Show the informations.",
                 "/version": "查詢Furina的版本 | Check Furina's version.",
@@ -48,15 +48,7 @@ class HelpView(PaginatedViewBase):
             }, color=dc.Color.blue(), title="一般指令 | Normal Commands"),
 
             # Page 語音指令
-            get_general_embed(message={
-                "/join": "加入語音頻道 | Join a voice channel.",
-                "/leave": "離開語音頻道 | Leave a voice channel.",
-                "/queue": "查看播放序列 | Check the play queue.",
-                "/hoyomixlist": "查看Furina收錄的Hoyomix歌單 | Check Furina's Hoyomix list.",
-                "/playyt": "播放一首Youtube歌曲 | Play a song with Youtube.",
-                "/playgi": "播放原神的隨機原聲帶內容 | Play a random song from Genshin Impact OST.",
-                "/playhsr": "播放崩鐵的隨機原聲帶內容 | Play a random song from Honkai Star Rail OST.",
-            }, color=dc.Color.blue(), title="語音指令 | Voice Commands"),
+            get_general_embed(message="自1.3.7版本起不支援語音指令 | Voice commands are not supported since version 1.3.7.", color=dc.Color.blue(), title="語音指令 | Voice Commands"),
 
             # Page 管理指令
             get_general_embed(message={
@@ -65,7 +57,7 @@ class HelpView(PaginatedViewBase):
                 "/deletemessage": "刪除一定數量的訊息(需擁有管理訊息權限) | Delete a certain number of messages.(Requires manage messages permission)",
             }, color=dc.Color.blue(), title="管理指令 | Manage Commands"),
 
-            # 🛠️ Page 操作說明
+            # Page 操作說明
             get_general_embed(message={
                 "$re": "輸出`$re`以重置對話 | Send `$re` to reset the conversation.",
                 "$skip": "在訊息加上前綴`$skip`以跳過該訊息 | Add the prefix `$skip` to skip the message.",
@@ -166,25 +158,6 @@ class ServerInfoView(PaginatedViewBase):
     async def first(self, interaction: dc.Interaction, button: dc.ui.Button):
         self.current = 0
         await interaction.response.edit_message(embed=self.pages[self.current], view=self)
-
-class WarningView(dc.ui.View):
-    def __init__(self, 
-                 message: str = None,
-                 color: dc.Color = dc.Color.yellow, 
-                 title: str = "警告 | Warning"):
-        super().__init__(timeout=300)
-        self.embed = self.generate_embed(message=message, color=color, title=title)
-        self.message : dc.Message = None
-        self.yes_or_no = False
-        return None
-
-    def generate_embed(self, message: str, color: dc.Color, title: str):
-        embed = get_general_embed(
-            message=message,
-            color=color,
-            title=title,
-        )
-        return embed
 
 if __name__ == "__main__":
     pass
