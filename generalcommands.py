@@ -1,6 +1,6 @@
 import random
 from objects import bot, developers_id
-from views import *
+from views_and_musicfuncs import *
 from discord.app_commands import describe
 from generalmethods import *
 

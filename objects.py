@@ -62,6 +62,7 @@ threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 bot, model = set_bot(), set_model()
 server_playing_hoyomix = {} # 存每個server目前是否播放Hoyo的歌
+is_actually_playing = [] # is_playing可能延遲所以用這個更快
 all_server_queue = defaultdict(asyncio.Queue) # MusicInfoView
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)

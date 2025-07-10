@@ -1,19 +1,18 @@
 import string
 import random
-import discord as dc
 import logging
 import csv
 import requests
 import aiohttp
-from objects import furina_channel_ws, furina_error_ws, developers_id, server_playing_hoyomix
-from objects import LOGGING_CHANNEL_ID, VERSION, GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL, GOOGLE_FURINA_ERROR_SHEET_CSV_URL
+import discord as dc
+from objects import *
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
 from discord import Embed
 
 logging.basicConfig(
     level=logging.INFO,  # 或 DEBUG 適用於更詳細的日誌
-    format='%(levelname)s - %(message)s'
+    format='%(levelname)s - %(name)s - %(message)s'
 )
 
 def generate_random_code(length: int):
@@ -226,9 +225,15 @@ async def fix_error(bot: commands.Bot, interaction: dc.Interaction, hashcode: st
         await send_new_error_logging(bot=bot, message=f"Failed to report to user: {e}", to_discord=False)
         return
 
-def remove_hoyomix_status(guild: dc.Guild):
-    if server_playing_hoyomix.get(guild.id):
-        server_playing_hoyomix.pop(guild.id)
+def remove_hoyomix_status(id: int):
+    if server_playing_hoyomix.get(id):
+        server_playing_hoyomix.pop(id)
+
+def not_playing_process(id: int):
+    remove_hoyomix_status(id)
+    while id in is_actually_playing:
+        is_actually_playing.remove(id)
+    all_server_queue.pop(id, None)
 
 def get_general_embed(message: str | dict, 
                       color: dc.Color = dc.Color.blue(), 
