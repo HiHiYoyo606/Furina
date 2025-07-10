@@ -1,4 +1,3 @@
-import asyncio
 import discord as dc
 import google.generativeai as genai
 import os
@@ -7,9 +6,7 @@ import threading
 from flask import Flask
 from dotenv import load_dotenv
 from discord.ext import commands
-from collections import defaultdict
 from google.oauth2.service_account import Credentials
-from enum import Enum
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -23,20 +20,9 @@ GOOGLE_FURINA_ERROR_SHEET_CSV_URL = os.getenv("GOOGLE_FURINA_ERROR_SHEET_CSV_URL
 FURINA_CHANNEL_WORKSHEET_NAME=os.getenv("FURINA_CHANNEL_WORKSHEET_NAME")
 FURINA_ERROR_WORKSHEET_NAME=os.getenv("FURINA_ERROR_WORKSHEET_NAME")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SONGLIST_WEBSITE = "https://hihiyoyo606.github.io/Furina/"
-TOTAL_BLOCKS = 15
 with open("version.txt", "r") as f:
     VERSION = f.read().strip()
 
-class HoyoGames(Enum):
-    GI= "Genshin Impact"
-    HSR= "Honkai Star Rail"
-    ZZZ= "Zenless Zone Zero"
-song_file_dict = {
-    "Genshin Impact": "gisongs.txt",
-    "Honkai Star Rail": "hsrsongs.txt",
-    "Zenless Zone Zero": "zzzsongs.txt"
-}
 developers_id = [
     802714733219414047,
     985858138542600212,
@@ -62,9 +48,6 @@ port = int(os.environ.get("PORT", 8080))
 threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 bot, model = set_bot(), set_model()
-server_playing_hoyomix = {} # 存每個server目前是否播放Hoyo的歌
-is_actually_playing = [] # is_playing可能延遲所以用這個更快
-all_server_queue = defaultdict(asyncio.Queue) # MusicInfoView
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)
 spreadsheet=gs.open_by_key(SHEET_ID)

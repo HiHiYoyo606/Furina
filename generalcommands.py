@@ -1,7 +1,7 @@
 import random
 from objects import bot, developers_id
-from views_and_musicfuncs import *
 from discord.app_commands import describe
+from views import *
 from generalmethods import *
 
 @bot.tree.command(name="help", description="顯示說明訊息 | Show the informations.")

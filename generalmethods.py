@@ -225,16 +225,6 @@ async def fix_error(bot: commands.Bot, interaction: dc.Interaction, hashcode: st
         await send_new_error_logging(bot=bot, message=f"Failed to report to user: {e}", to_discord=False)
         return
 
-def remove_hoyomix_status(id: int):
-    if server_playing_hoyomix.get(id):
-        server_playing_hoyomix.pop(id)
-
-def not_playing_process(id: int):
-    remove_hoyomix_status(id)
-    while id in is_actually_playing:
-        is_actually_playing.remove(id)
-    all_server_queue.pop(id, None)
-
 def get_general_embed(message: str | dict, 
                       color: dc.Color = dc.Color.blue(), 
                       title: str = None, 
