@@ -5,10 +5,18 @@ from objects import *
 from generalmethods import *
 from generalcommands import *
 from geminichat import chat_process_message
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)s - %(name)s - %(message)s'
 )
+
+app = Flask(__name__)
+@app.route("/")
+def home():
+    return "Furina is now awake! :D"
+port = int(os.environ.get("PORT", 8080))
+threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 @bot.event
 async def on_ready():
@@ -31,4 +39,4 @@ async def main():
     await send_new_info_logging(bot=bot, message=f"Bot successfully started at {get_hkt_time()}.", to_discord=False) 
 
 if __name__ == "__main__":
-    asyncio.run(main())    
+    asyncio.run(main())

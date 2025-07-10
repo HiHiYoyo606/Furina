@@ -40,13 +40,6 @@ def set_model():
     model = genai.GenerativeModel(GEMINI_VERSION)
     return model
 
-app = Flask(__name__)
-@app.route("/")
-def home():
-    return "Furina is now awake! :D"
-port = int(os.environ.get("PORT", 8080))
-threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
-
 bot, model = set_bot(), set_model()
 creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 gs=gspread.authorize(creds)
