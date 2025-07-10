@@ -552,11 +552,15 @@ async def get_ytdlp_infoview(interaction: dc.Interaction,
 
     with ytdlp(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
-        if 'entries' in info:
-            if len(info['entries']) > 0:
+        if info.get('entries') and len(info['entries']) > 0:
+            info = info['entries'][0]
+        else:
+            info = ydl.extract_info(query.replace(" HOYO-MiX", " Yu-peng Music"), download=False)
+            if info.get('entries') and len(info['entries']) > 0:
                 info = info['entries'][0]
             else:
-                info = ydl.extract_info(query.replace(" HOYO-MiX", " Yu-peng Music"), download=False)
+                await send_new_error_logging(bot, f"Failed to fetch audio url for song {query}", to_discord=True, ping_admin=True)
+                return
 
     audio_url = info.get('url')
     title = info.get('title', 'UNKNOWN SONG')
@@ -670,6 +674,9 @@ async def play_single_song(interaction: dc.Interaction,
                                                    command=command, 
                                                    game_type=game_type
                                                    )
+    if not view:
+        done_played.set()
+        return
     audio_url = view.url
     duration = view.duration
     await add_infoview(interaction=interaction, view=view)
