@@ -20,7 +20,6 @@ async function loadSongList(tag) {
       document.getElementById('last-updated').textContent = "最後更新時間 | 無法取得";
     }
     const songs = text.split('\n').map(line => line.trim()).filter(Boolean);
-    document.getElementById('last-updated').classList.add('loaded');
 
     // 建立表格行，每行 4 首歌
     let row;
@@ -44,3 +43,4 @@ async function loadSongList(tag) {
 
 document.getElementById('btn-gi').addEventListener('click', () => loadSongList('gi'));
 document.getElementById('btn-hsr').addEventListener('click', () => loadSongList('hsr'));
+document.getElementById('last-updated').classList.add('loaded');
