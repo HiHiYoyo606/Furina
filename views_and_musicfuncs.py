@@ -5,7 +5,7 @@ import logging
 import random
 from generalmethods import get_general_embed, send_new_info_logging, send_new_error_logging, not_playing_process
 from datetime import datetime, timedelta, timezone
-from objects import bot, song_file_dict, all_server_queue, server_playing_hoyomix, is_actually_playing, TOTAL_BLOCKS, HoyoGames
+from objects import bot, song_file_dict, all_server_queue, server_playing_hoyomix, is_actually_playing, TOTAL_BLOCKS, SONGLIST_WEBSITE, HoyoGames
 from typing import Optional, Callable, Awaitable
 from yt_dlp import YoutubeDL as ytdlp
 
@@ -170,17 +170,19 @@ class ServerInfoView(PaginatedViewBase):
         self.current = 0
         await interaction.response.edit_message(embed=self.pages[self.current], view=self)
 
-class HoyomixSongsListView(PaginatedViewBase):
+class HoyomixSongsListView(dc.ui.View):
     def __init__(self, game: HoyoGames, songs_per_page: int = 10):
         super().__init__(timeout=300)
+        """
         with open(song_file_dict[game.value], "r", encoding="utf-8") as f:
             self.songs = [line.strip() for line in f.readlines() if line.strip()]
-        self.game = game
-        self.pages = self.generate_embeds(songs_per_page=songs_per_page)
+        self.game = game"""
+        self.pages = self.generate_embeds()
         return None
 
     def generate_embeds(self, songs_per_page: int = 10):
         embeds = []
+        """
         total_pages = (len(self.songs) + songs_per_page - 1) // songs_per_page
 
         for i in range(total_pages):
@@ -189,7 +191,15 @@ class HoyomixSongsListView(PaginatedViewBase):
                 message="\n".join(current_page_songs+[f"第 {i+1} / {total_pages} 頁 | Page {i+1} / {total_pages}"]),
                 title=f"{self.game.value} 歌曲清單 | {self.game.value} Song List"
             )
-            embeds.append(embed)
+            embeds.append(embed)"""
+        
+        embed = get_general_embed(
+            message=f"# {SONGLIST_WEBSITE}",
+            title="歌單放在這裡喔 | Song list is here!",
+            color=dc.Color.blue(),
+            icon=bot.user.avatar.url
+        )
+        embeds.append(embed)
         return embeds
 
 class LyricsView(PaginatedViewBase):
@@ -242,6 +252,14 @@ class MusicInfoView(dc.ui.View):
         self.played_seconds =   start_m * 60 + start_s
         self.lyrics_view =      None
         self.game =             game
+
+        self.add_item(dc.ui.Button(
+            label="查詢Hoyomix歌單 | Hoyomix list",
+            style=dc.ButtonStyle.link,
+            url=SONGLIST_WEBSITE,
+            row=1
+        ))
+
         return None
 
     def generate_embed(self, title: str, thumbnail: str, uploader: str, duration: int = None):
@@ -344,14 +362,6 @@ class MusicInfoView(dc.ui.View):
             await interaction.followup.send(embed=view.pages[0], view=view, ephemeral=True)
         else:
             await interaction.followup.send(content="> 沒找到歌詞 😢", ephemeral=True)
-    
-    @dc.ui.button(label="查詢Hoyomix歌單 | Hoyomix list", style=dc.ButtonStyle.secondary, row=1)
-    async def get_hoyomix_list(self, interaction: dc.Interaction, button: dc.ui.Button):
-        if self.game is None:
-            await interaction.response.send_message("> 只有Hoyomix歌單支援此功能 | Only Hoyomix list supports this feature.")
-            return
-        
-        await send_hoyomix_list(interaction=interaction, game_type=self.game, songs_per_page=10)
 
     @dc.ui.button(label="清空序列 | Clear", style=dc.ButtonStyle.danger, row=2)
     async def clear(self, interaction: dc.Interaction, button: dc.ui.Button):
@@ -476,7 +486,7 @@ async def send_hoyomix_list(interaction: dc.Interaction, game_type: HoyoGames | 
     game = game_type if isinstance(game_type, HoyoGames) else HoyoGames[game_type]
     songs_per_page = min(50, max(10, songs_per_page))
     view = HoyomixSongsListView(game=game, songs_per_page=songs_per_page)
-    await interaction.response.send_message(embed=view.pages[0], view=view)
+    await interaction.response.send_message(embed=view.pages[0])
 
 async def play_connection_check(interaction: dc.Interaction):
     await interaction.response.defer(thinking=True)

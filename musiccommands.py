@@ -68,17 +68,9 @@ async def slash_queue(interaction: dc.Interaction):
     await interaction.response.send_message(f"> 當前播放序列 | Current play queue:\n{message}", ephemeral=False)
 
 @bot.tree.command(name="hoyomixlist", description="查看Furina收錄的Hoyomix歌單 | Check Furina's Hoyomix list.")
-@dc.app_commands.choices(choice=[
-    dc.app_commands.Choice(name="原神 Genshin Impact", value="GI"),
-    dc.app_commands.Choice(name="崩鐵 Honkai Star Rail", value="HSR"),
-])
-@describe(songsperpage="每頁顯示的歌曲數量(預設至少10, 至多50) | The number of songs to display per page. (default at least 10, at most 50)")
-async def slash_hoyomixlist(interaction: dc.Interaction, choice: str, songsperpage: int = 0):
-    if isinstance(interaction.channel, dc.DMChannel):
-        await interaction.followup.send("> 這個指令只能用在伺服器中 | This command can only be used in a server.", ephemeral=True)
-        return
-    
-    await send_hoyomix_list(interaction=interaction, game=choice, songs_per_page=songsperpage)
+async def slash_hoyomixlist(interaction: dc.Interaction):
+    view = HoyomixSongsListView(game=None, songs_per_page=None)
+    await interaction.response.send_message(embed=view.pages[0], view=view)
 
 @bot.tree.command(name="playyt", description="播放一首Youtube歌曲")
 @describe(query="關鍵字 | Keyword.")

@@ -23,6 +23,7 @@ GOOGLE_FURINA_ERROR_SHEET_CSV_URL = os.getenv("GOOGLE_FURINA_ERROR_SHEET_CSV_URL
 FURINA_CHANNEL_WORKSHEET_NAME=os.getenv("FURINA_CHANNEL_WORKSHEET_NAME")
 FURINA_ERROR_WORKSHEET_NAME=os.getenv("FURINA_ERROR_WORKSHEET_NAME")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SONGLIST_WEBSITE = "https://hihiyoyo606.github.io/Furina/"
 TOTAL_BLOCKS = 15
 with open("version.txt", "r") as f:
     VERSION = f.read().strip()
