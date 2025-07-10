@@ -14,10 +14,10 @@ async function loadSongList(tag) {
 
     if (lastModified) {
       const date = new Date(lastModified);
-      const formatted = date.toLocaleString('sv-SE').replace(' ', ' | Last update: ');
-      document.getElementById('last-updated').textContent = `最後更新時間 | ${formatted}`;
+      const formatted = date.toLocaleString('sv-SE').replace(' ', '');
+      document.getElementById('last-updated').textContent = `最後更新時間 | Last update: ${formatted}`;
     } else {
-      document.getElementById('last-updated').textContent = "最後更新時間 | 無法取得";
+      document.getElementById('last-updated').textContent = "最後更新時間 | Last update: 無法取得";
     }
     const songs = text.split('\n').map(line => line.trim()).filter(Boolean);
     document.getElementById('last-updated').classList.add('loaded');
