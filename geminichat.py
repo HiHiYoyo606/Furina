@@ -88,7 +88,7 @@ async def chat_sent_message_to_channel(bot: commands.Bot, original_message: dc.M
 async def chat_process_message(bot: commands.Bot, model: GenerativeModel, message: dc.Message) -> None:
     """處理收到的訊息並產生回應"""
     """回傳: None"""
-    TARGET_CHANNEL_IDS = await GoogleSheet.get_all_channels_from_gs()
+    TARGET_CHANNEL_IDS = [int(e) for e in await GoogleSheet.get_all_channels_from_gs()]
 
     if message.author.id == bot.user.id:
         return  # 忽略自己發送的訊息
