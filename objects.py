@@ -2,8 +2,6 @@ import discord as dc
 import google.generativeai as genai
 import os
 import gspread
-import threading
-from flask import Flask
 from dotenv import load_dotenv
 from discord.ext import commands
 from google.oauth2.service_account import Credentials

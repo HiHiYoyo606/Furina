@@ -11,7 +11,7 @@ logging.basicConfig(
     format="%(levelname)s - %(name)s - %(message)s",
 )
 class PaginatedViewBase(dc.ui.View):
-    def __init__(self, timeout=120):
+    def __init__(self, timeout=600):
         super().__init__(timeout=timeout)
         self.pages: list[dc.Embed] = []  # 子類別需填寫
         self.current = 0
@@ -28,7 +28,7 @@ class PaginatedViewBase(dc.ui.View):
 
 class HelpView(PaginatedViewBase):
     def __init__(self):
-        super().__init__(timeout=120)
+        super().__init__(timeout=600)
         self.pages = self.generate_embeds()
 
     def generate_embeds(self):
@@ -42,6 +42,7 @@ class HelpView(PaginatedViewBase):
                 "/rockpaperscissors": "和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.",
                 "/whois": "顯示特定成員在伺服器內的資訊 | Show a member's infomation in server.",
                 "/serverinfo": "顯示伺服器資訊 | Show server information.",
+                "/channelinfo": "顯示頻道資訊 | Show channel information.",
                 "/addchannel": "新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.",
                 "/removechannel": "從名單中刪除一個頻道 | Remove a channel ID from the list.",
                 "/reporterror": "回報你所發現的錯誤 | Report an error you found."
@@ -68,7 +69,7 @@ class HelpView(PaginatedViewBase):
 
 class MemberInfoView(PaginatedViewBase):
     def __init__(self, user: dc.Member):
-        super().__init__(timeout=120)
+        super().__init__(timeout=600)
         self.page_task = asyncio.create_task(self.generate_embeds(user=user))
         self.pages = None
         return None
@@ -158,6 +159,43 @@ class ServerInfoView(PaginatedViewBase):
     async def first(self, interaction: dc.Interaction, button: dc.ui.Button):
         self.current = 0
         await interaction.response.edit_message(embed=self.pages[self.current], view=self)
+
+class ChannelInfoView(dc.ui.View):
+    def __init__(self, channel_id: int):
+        super().__init__(timeout=600)
+        self.channel_id = channel_id
+        self.embed = None
+        return None
+    
+    async def get_embed(self):
+        self.embed = await self.generate_embed(self.channel_id)
+        return self.embed
+    
+    async def generate_embed(self, channel_id: int):
+        try:
+            channel = await bot.fetch_channel(channel_id)
+        except dc.NotFound:
+            return get_general_embed("頻道不存在 | This channel does not exist.", dc.Color.red(), "頻道資訊 | Channel Information")
+        except dc.Forbidden:
+            return get_general_embed("我沒有權限檢視該頻道 | I don't have permission to view this channel.", dc.Color.red(), "頻道資訊 | Channel Information")
+        
+        if not channel:
+            return get_general_embed("頻道不存在或該頻道為私人頻道 | This channel does not exist or is a private channel.", dc.Color.red(), "頻道資訊 | Channel Information")
+        server_icon = channel.guild.icon.url if channel.guild.icon else None
+        banner = channel.guild.banner.url if channel.guild.banner else None
+
+        informations = {
+            "頻道所在伺服器 | Server": channel.guild.name,
+            "頻道名稱 | Channel Name": channel.name,
+            "頻道類型 | Channel Type": channel.type.name,
+            "描述 | Description": channel.topic if channel.topic else None,
+            "擁有者 | Owner": channel.guild.owner.mention,
+            "創建日期 | Created At": channel.created_at.strftime("%Y-%m-%d"),
+            "頻道ID | Channel ID": channel.id,
+            "訊息總數 | Message count": channel.message_count if hasattr(channel, "message_count") else "未知 | Unknown",
+        }
+        embed = get_general_embed(informations, title="頻道資訊 | Channel Information", icon=server_icon, banner=banner)
+        return embed
 
 if __name__ == "__main__":
     pass

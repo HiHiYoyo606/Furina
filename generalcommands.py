@@ -137,6 +137,21 @@ async def slash_server_info(interaction: dc.Interaction, roleperpage: int = 10):
     await interaction.response.send_message(embed=view.pages[0], view=view, ephemeral=True)
     await send_new_info_logging(bot=bot, message=f"{interaction.user} has used /serverinfo to view server \"{interaction.guild.name}\".")
 
+@bot.tree.command(name="channelinfo", description="顯示頻道資訊 | Show channel information.")
+@describe(channel_id="要查詢的頻道ID(留空則為當前頻道) | The id of the channel to be queried. (leave empty for current channel)")
+async def slash_channel_info(interaction: dc.Interaction, channel_id: str = None):
+    if channel_id is None:
+        channel_id = interaction.channel.id
+
+    if isinstance(channel_id, str) and not channel_id.isdigit():
+        await interaction.response.send_message("> 這不是一個有效的ID | This is not a valid ID.")
+        return
+    
+    channel_id = int(channel_id)
+    view = ChannelInfoView(channel_id)
+    embed = await view.get_embed()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 @bot.tree.command(name="rockpaperscissors", description="和芙寧娜玩剪刀石頭布 | Play rock paper scissors with Furina.")
 @dc.app_commands.choices(choice=[
     dc.app_commands.Choice(name="石頭 Rock", value="石頭 Rock"),
@@ -158,13 +173,15 @@ async def slash_rock_paper_scissors(interaction: dc.Interaction, choice: str):
 
 @bot.tree.command(name="addchannel", description="新增一個和芙寧娜對話的頻道 | Add a chat channel with Furina.")
 @describe(channel_id="要新增的頻道的ID(留空則為當前頻道) | The ID of the channel to add. (leave empty for current channel)")
-async def slash_add_channel(interaction: dc.Interaction, channel_id: int = None):
+async def slash_add_channel(interaction: dc.Interaction, channel_id: str = None):
     """新增一個和芙寧娜對話的頻道"""
     """回傳: None"""
     if channel_id is None:
         channel_id = str(interaction.channel.id)
+    if not channel_id.isdigit():
+        await interaction.response.send_message("> 這不是一個有效的ID | This is not a valid ID.")
 
-    channel_list = await GoogleSheet.get_all_channels_from_gs()
+    channel_list = [e for e in (await GoogleSheet.get_all_channels_from_gs())]
     if channel_id not in channel_list:
         GoogleSheet.add_channel_to_gs(channel_id)
         await interaction.response.send_message(f"> ✅已新增頻道 `{channel_id}`")
@@ -175,12 +192,16 @@ async def slash_add_channel(interaction: dc.Interaction, channel_id: int = None)
 
 @bot.tree.command(name="removechannel", description="從名單中刪除一個頻道ID | Remove a channel ID from the list.")
 @describe(channel_id="要刪除的頻道ID(留空則為當前頻道) | The ID of the channel to remove (leave empty for current channel).")
-async def slash_remove_channel(interaction: dc.Interaction, channel_id: int = None):
+async def slash_remove_channel(interaction: dc.Interaction, channel_id: str = None):
     """從名單中刪除一個頻道ID"""
     """回傳: None"""
     if channel_id is None:
-        channel_id = str(interaction.channel.id)
+        channel_id = interaction.channel.id
 
+    if isinstance(channel_id, str) and not channel_id.isdigit():
+        await interaction.response.send_message("> 這不是一個有效的ID | This is not a valid ID.")
+        return
+    
     try:
         all_channels = await GoogleSheet.get_all_channels_from_gs()
         if channel_id in all_channels:

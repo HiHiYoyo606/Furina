@@ -84,7 +84,7 @@ class GoogleSheet:
         self.channel_worksheet = furina_channel_ws
 
     @staticmethod
-    async def get_all_channels_from_gs() -> list[int]:
+    async def get_all_channels_from_gs() -> list[str]:
         async with aiohttp.ClientSession() as session:
             async with session.get(GOOGLE_FURINA_CHANNEL_SHEET_CSV_URL) as response:
                 text = await response.text()
@@ -96,7 +96,7 @@ class GoogleSheet:
         reader = csv.DictReader(csv_content)
         for row in reader:
             try:
-                channel_id = int(row.get("dc_channel_id", "").strip())
+                channel_id = row.get("dc_channel_id", "").strip()
                 all_channels.append(channel_id)
             except (ValueError, TypeError):
                 continue  # 忽略轉換失敗或空值
@@ -124,9 +124,9 @@ class GoogleSheet:
         furina_error_ws.append_row(content)
 
     @staticmethod
-    def add_channel_to_gs(channel_id: int):
-        furina_channel_ws.append_row([channel_id.__str__()])
-
+    def add_channel_to_gs(channel_id: str):
+        furina_channel_ws.append_row([channel_id])
+        
     @staticmethod
     def remove_channel_from_gs(channel_id: int):
         rows = furina_channel_ws.get_all_values()

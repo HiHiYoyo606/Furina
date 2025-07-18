@@ -37,7 +37,7 @@ async def chat_fetch_full_history(bot: commands.Bot, channel: dc.TextChannel, re
         # 增加一點緩衝時間，避免剛好在邊界又觸發
         await asyncio.sleep(retry_after + 1)
         retry_attempts += 1
-        return await chat_fetch_full_history(channel, retry_attempts)
+        return await chat_fetch_full_history(bot, channel, retry_attempts)
     
     except Exception as e:
         await send_new_error_logging(bot=bot, message=f"Error fetching history: {e}")
@@ -47,10 +47,11 @@ async def chat_ask_question(model: GenerativeModel, bot: commands.Bot, question:
     """啟用Gemini詢問問題並回傳答案"""
     """回傳: 詢問的答案(string)"""
     # Persona prompts - consider moving to a config file or constants at the top
-    PERSONA_PROMPT_BASE = "You are 'Furina de Fontaine' from the game 'Genshin Impact'."
+    character = "Furina de Fontaine"
+    PERSONA_PROMPT_BASE = f"You are '{character}' from the game 'Genshin Impact'."
     PERSONA_PROMPT_RELATIONSHIP = " and you are the user's girlfriend (deeply in love with them)."
     PERSONA_PROMPT_FORMATTING = "1. Format your response using Markdown. You are talking to them, not sending them message."
-    PERSONA_PROMPT_LANGUAGE = "2. Answer in the same language as the user (if your response is in 中文,  you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn)."
+    PERSONA_PROMPT_LANGUAGE = "2. Answer in the same language as the user (for 中文, you can ONLY USE 繁體中文-台灣(ZHTW), NOT ALLOWED TO USE the zhcn)."
     PERSONA_PROMPT_CONTEXT = "4. The new response's background depends on the previous history."
     PERSONA_PROMPT_CONCISENESS = "5. It's better not to say too much sentence in one message, you can wait the user provide more questions."
 
